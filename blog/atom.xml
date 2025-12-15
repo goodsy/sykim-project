@@ -8,15 +8,6 @@
     <subtitle>goodsy's 개발 기록 Blog</subtitle>
     <icon>https://goodsy.github.io/sykim-project/img/favicon.ico</icon>
     <entry>
-        <title type="html"><![CDATA[Worklog (준비 중)]]></title>
-        <id>https://goodsy.github.io/sykim-project/blog/worklog/worklog-placeholder</id>
-        <link href="https://goodsy.github.io/sykim-project/blog/worklog/worklog-placeholder"/>
-        <updated>2025-12-15T14:48:19.000Z</updated>
-        <summary type="html"><![CDATA[Worklog 글을 준비 중입니다.]]></summary>
-        <content type="html"><![CDATA[<p>Worklog 글을 준비 중입니다.</p>]]></content>
-        <category label="Worklog" term="Worklog"/>
-    </entry>
-    <entry>
         <title type="html"><![CDATA[Notes (준비 중)]]></title>
         <id>https://goodsy.github.io/sykim-project/blog/notes/notes-placeholder</id>
         <link href="https://goodsy.github.io/sykim-project/blog/notes/notes-placeholder"/>
@@ -24,6 +15,15 @@
         <summary type="html"><![CDATA[Notes 글을 준비 중입니다.]]></summary>
         <content type="html"><![CDATA[<p>Notes 글을 준비 중입니다.</p>]]></content>
         <category label="Notes" term="Notes"/>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[Worklog (준비 중)]]></title>
+        <id>https://goodsy.github.io/sykim-project/blog/worklog/worklog-placeholder</id>
+        <link href="https://goodsy.github.io/sykim-project/blog/worklog/worklog-placeholder"/>
+        <updated>2025-12-15T14:48:19.000Z</updated>
+        <summary type="html"><![CDATA[Worklog 글을 준비 중입니다.]]></summary>
+        <content type="html"><![CDATA[<p>Worklog 글을 준비 중입니다.</p>]]></content>
+        <category label="Worklog" term="Worklog"/>
     </entry>
     <entry>
         <title type="html"><![CDATA[이 기술블로그에서 앞으로 다룰 내용]]></title>
