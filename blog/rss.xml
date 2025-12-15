@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+    <channel>
+        <title>goodsy's 개발 기록 Blog</title>
+        <link>https://goodsy.github.io/sykim-project/blog</link>
+        <description>goodsy's 개발 기록 Blog</description>
+        <lastBuildDate>Mon, 15 Dec 2025 14:48:19 GMT</lastBuildDate>
+        <docs>https://validator.w3.org/feed/docs/rss2.html</docs>
+        <generator>https://github.com/jpmonette/feed</generator>
+        <language>ko</language>
+        <item>
+            <title><![CDATA[Notes (준비 중)]]></title>
+            <link>https://goodsy.github.io/sykim-project/blog/notes/notes-placeholder</link>
+            <guid>https://goodsy.github.io/sykim-project/blog/notes/notes-placeholder</guid>
+            <pubDate>Mon, 15 Dec 2025 14:48:19 GMT</pubDate>
+            <description><![CDATA[Notes 글을 준비 중입니다.]]></description>
+            <content:encoded><![CDATA[<p>Notes 글을 준비 중입니다.</p>]]></content:encoded>
+            <category>Notes</category>
+        </item>
+        <item>
+            <title><![CDATA[Worklog (준비 중)]]></title>
+            <link>https://goodsy.github.io/sykim-project/blog/worklog/worklog-placeholder</link>
+            <guid>https://goodsy.github.io/sykim-project/blog/worklog/worklog-placeholder</guid>
+            <pubDate>Mon, 15 Dec 2025 14:48:19 GMT</pubDate>
+            <description><![CDATA[Worklog 글을 준비 중입니다.]]></description>
+            <content:encoded><![CDATA[<p>Worklog 글을 준비 중입니다.</p>]]></content:encoded>
+            <category>Worklog</category>
+        </item>
+        <item>
+            <title><![CDATA[이 기술블로그에서 앞으로 다룰 내용]]></title>
+            <link>https://goodsy.github.io/sykim-project/blog/2025/12/12/start-tech-blog</link>
+            <guid>https://goodsy.github.io/sykim-project/blog/2025/12/12/start-tech-blog</guid>
+            <pubDate>Fri, 12 Dec 2025 00:00:00 GMT</pubDate>
+            <description><![CDATA[이 블로그는 단순한 기술 정리 공간이 아니라,]]></description>
+            <content:encoded><![CDATA[<p>이 블로그는 단순한 기술 정리 공간이 아니라,<br>
+<strong>실무에서의 고민과 선택, 그리고 그 결과를 기록하는 공간</strong>으로 운영할 예정이다.</p>
+<p>백엔드 개발자로 일하며 느낀 점은,<br>
+<!-- -->기술 자체보다도  <strong>"어떤 상황에서 왜 이 선택을 했는지"</strong> 가 훨씬 중요하다는 것이다.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-정산결제pg-시스템-실무-기록">1. 정산·결제(PG) 시스템 실무 기록<a href="https://goodsy.github.io/sykim-project/blog/2025/12/12/start-tech-blog#1-%EC%A0%95%EC%82%B0%EA%B2%B0%EC%A0%9Cpg-%EC%8B%9C%EC%8A%A4%ED%85%9C-%EC%8B%A4%EB%AC%B4-%EA%B8%B0%EB%A1%9D" class="hash-link" aria-label="1. 정산·결제(PG) 시스템 실무 기록에 대한 직접 링크" title="1. 정산·결제(PG) 시스템 실무 기록에 대한 직접 링크" translate="no">​</a></h2>
+<p>가장 오래 다뤄온 영역인 <strong>결제(PG) 정산 시스템</strong>을 중심으로,<br>
+<!-- -->다음과 같은 내용을 정리할 계획이다.</p>
+<ul>
+<li class="">정산 기준정보 설계 (수수료율, 계산 방식, 세금계산서 기준)</li>
+<li class="">정산 배치 시스템 설계와 고도화 과정</li>
+<li class="">정산 중복 처리와 데이터 정합성 문제</li>
+<li class="">PG/외부 시스템 연동 시 고려해야 할 포인트</li>
+</ul>
+<p>실제 운영 환경에서 겪었던 문제와<br>
+<!-- -->그 문제를 해결하기 위해 어떤 구조와 방식을 선택했는지를 기록한다.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-spring-batch-기반-대량-처리와-성능-개선">2. Spring Batch 기반 대량 처리와 성능 개선<a href="https://goodsy.github.io/sykim-project/blog/2025/12/12/start-tech-blog#2-spring-batch-%EA%B8%B0%EB%B0%98-%EB%8C%80%EB%9F%89-%EC%B2%98%EB%A6%AC%EC%99%80-%EC%84%B1%EB%8A%A5-%EA%B0%9C%EC%84%A0" class="hash-link" aria-label="2. Spring Batch 기반 대량 처리와 성능 개선에 대한 직접 링크" title="2. Spring Batch 기반 대량 처리와 성능 개선에 대한 직접 링크" translate="no">​</a></h2>
+<p>대량 데이터 처리와 배치는 정산 시스템에서 빠질 수 없는 영역이다.</p>
+<ul>
+<li class="">Chunk vs Tasklet 선택 기준</li>
+<li class="">Skip / Retry 정책 설계 경험</li>
+<li class="">대량 Insert / Update 성능 개선</li>
+<li class="">배치 장애 발생 시 재처리 전략</li>
+</ul>
+<p>단순 기능 설명이 아닌,<br>
+<strong>운영 안정성과 성능을 함께 고려한 설계 관점</strong>을 중심으로 정리할 예정이다.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-트랜잭션-동시성-데이터-정합성">3. 트랜잭션, 동시성, 데이터 정합성<a href="https://goodsy.github.io/sykim-project/blog/2025/12/12/start-tech-blog#3-%ED%8A%B8%EB%9E%9C%EC%9E%AD%EC%85%98-%EB%8F%99%EC%8B%9C%EC%84%B1-%EB%8D%B0%EC%9D%B4%ED%84%B0-%EC%A0%95%ED%95%A9%EC%84%B1" class="hash-link" aria-label="3. 트랜잭션, 동시성, 데이터 정합성에 대한 직접 링크" title="3. 트랜잭션, 동시성, 데이터 정합성에 대한 직접 링크" translate="no">​</a></h2>
+<p>실무에서 가장 많은 고민이 필요한 주제 중 하나다.</p>
+<ul>
+<li class="">트랜잭션 Isolation Level 선택 기준</li>
+<li class="">Deadlock 발생 원인과 대응 경험</li>
+<li class="">동시성 충돌을 막기 위한 설계 방식</li>
+</ul>
+<p>이론보다는 <strong>실제 문제 상황과 선택의 결과</strong>를 중심으로 다룬다.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-운영-장애-대응-그리고-자동화">4. 운영, 장애 대응, 그리고 자동화<a href="https://goodsy.github.io/sykim-project/blog/2025/12/12/start-tech-blog#4-%EC%9A%B4%EC%98%81-%EC%9E%A5%EC%95%A0-%EB%8C%80%EC%9D%91-%EA%B7%B8%EB%A6%AC%EA%B3%A0-%EC%9E%90%EB%8F%99%ED%99%94" class="hash-link" aria-label="4. 운영, 장애 대응, 그리고 자동화에 대한 직접 링크" title="4. 운영, 장애 대응, 그리고 자동화에 대한 직접 링크" translate="no">​</a></h2>
+<p>서비스는 개발보다 운영에서 더 많은 배움을 준다.</p>
+<ul>
+<li class="">장애 알림 설계</li>
+<li class="">로그와 이력 기반 원인 분석</li>
+<li class="">재처리와 롤백 전략</li>
+<li class="">운영 효율을 높이기 위한 자동화</li>
+</ul>
+<p>“장애를 줄이는 코드”보다<br>
+<!-- -->**"장애를 빨리 파악하고 복구할 수 있는 구조"**에 대한 고민을 담을 예정이다.</p>
+<hr>
+<p>이 블로그의 글들은 완벽한 정답을 제시하기보다는,<br>
+<strong>실무에서 고민하고 선택했던 과정을 솔직하게 기록</strong>하는 데 목적이 있다.</p>
+<p>앞으로 이 공간에 쌓일 기록들이<br>
+<!-- -->스스로를 돌아보는 자료이자,<br>
+<!-- -->필요한 누군가에게는 작은 참고가 되었으면 한다.</p>]]></content:encoded>
+            <category>기술블로그</category>
+            <category>백엔드</category>
+        </item>
+        <item>
+            <title><![CDATA[Batch 레거시 정산 시스템 고도화]]></title>
+            <link>https://goodsy.github.io/sykim-project/blog/2025/12/12/tech/batch-modernization</link>
+            <guid>https://goodsy.github.io/sykim-project/blog/2025/12/12/tech/batch-modernization</guid>
+            <pubDate>Fri, 12 Dec 2025 00:00:00 GMT</pubDate>
+            <description><![CDATA[Batch 정산 시스템 개선 사항]]></description>
+            <content:encoded><![CDATA[<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="batch-정산-시스템-개선-사항">Batch 정산 시스템 개선 사항<a href="https://goodsy.github.io/sykim-project/blog/2025/12/12/tech/batch-modernization#batch-%EC%A0%95%EC%82%B0-%EC%8B%9C%EC%8A%A4%ED%85%9C-%EA%B0%9C%EC%84%A0-%EC%82%AC%ED%95%AD" class="hash-link" aria-label="Batch 정산 시스템 개선 사항에 대한 직접 링크" title="Batch 정산 시스템 개선 사항에 대한 직접 링크" translate="no">​</a></h2>
+<p><strong>1. select - insert 구조 기반으로 기준정보와 거래원장 join으로 정산 기준정보 조회와 계산하는 로직으로 구현 됨</strong></p>
+<ul>
+<li class="">Job 또는 Step 실행 시, 기준정보 캐싱 조회 -&gt; 추후 Redis 연동</li>
+<li class="">캐싱된 기준정보와 정산 대 거래 원장의 정산 정보 생성</li>
+</ul>
+<p><strong>2. Domain Layer,  Batch Layer, Infra Layer 계층으로 재구조</strong></p>
+<ul>
+<li class="">데이터 정합성관련 설계<!-- -->
+<ul>
+<li class="">Table Unique Key</li>
+</ul>
+</li>
+</ul>
+<p><strong>3. Retry / Skip 정책</strong></p>
+<ul>
+<li class="">Retry : 외부 연동 실패 시</li>
+<li class="">Skip<!-- -->
+<ul>
+<li class="">정책 정의 필요<!-- -->
+<ul>
+<li class="">기준정보 누락</li>
+<li class="">거래금액 오류</li>
+</ul>
+</li>
+<li class="">각 정책의 Skip 건수가 일정 이상일 경우, 오류로 감지 Fail</li>
+<li class="">Skip 내역 Table 관리 -&gt; IMS 화면 조회 -&gt; 후처리 기능 -&gt; Batch 호출</li>
+</ul>
+</li>
+</ul>
+<p><strong>4. 재처리</strong></p>
+<ul>
+<li class="">각 Job별 후처리를 위한 Key 기반의 파라미터 정의</li>
+</ul>
+<p><strong>5. Batch 시, 실행결과 조회 및 후처리 기능</strong></p>
+<p><strong>6. 테스트 기간을 축소하기 위한 테스트 코드 작성</strong></p>
+<ul>
+<li class="">테스트 지원을 위한 테스트 코드</li>
+</ul>
+<p><strong>7. JPA VS mybatis/JDBC Cursor template</strong></p>
+<table><thead><tr><th style="text-align:left">기능</th><th style="text-align:left">기술</th><th style="text-align:left">이유</th></tr></thead><tbody><tr><td style="text-align:left">도메인 규칙 처리 소량 조회</td><td style="text-align:left">JPA</td><td style="text-align:left">1차 캐싱, 영속성 컨테스트 관리로 인한 메모리 사용, Flush/clear 비용 등으로 인한 성능 저하 가능성</td></tr><tr><td style="text-align:left">대량의 데이터 조회(Reader)</td><td style="text-align:left">JDBC Cursor</td><td style="text-align:left">메모리에 한 번에 올리지 않고 스트리밍 형태로 받아옴</td></tr><tr><td style="text-align:left">대량 Insert/Update</td><td style="text-align:left">JDBC+MERGE</td><td style="text-align:left">한 번의 건을 Chunk 트랜잭션 커밋 단위로 처리</td></tr></tbody></table>]]></content:encoded>
+            <category>Tech</category>
+        </item>
+    </channel>
+</rss>
