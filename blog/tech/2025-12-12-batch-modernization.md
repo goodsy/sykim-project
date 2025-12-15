@@ -1,3 +1,8 @@
+---
+title: Batch 레거시 정산 시스템 고도화
+tags: [tech]
+---
+
 ## Batch 레거시 정산 시스템 고도화 방향성
 1. select - insert 구조 기반으로 기준정보와 거래원장 join으로 정산 기준정보 조회와 계산하는 로직으로 구현 됨
     -  Job 또는 Step 실행 시, 기준정보 캐싱 조회 -> 추후 Redis 연동

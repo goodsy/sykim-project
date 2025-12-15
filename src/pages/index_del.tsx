@@ -32,13 +32,35 @@ function HomepageHeader() {
 export default function Home(): ReactNode {
   const {siteConfig} = useDocusaurusContext();
   return (
-    <Layout
-      title={`Hello from ${siteConfig.title}`}
-      description="Description will go into a meta tag in <head />">
-      <HomepageHeader />
-      <main>
-        <HomepageFeatures />
-      </main>
-    </Layout>
+      <Layout
+          title="sykim 기술블로그"
+          description="Backend · Spring · Batch · Settlement"
+      >
+          <main
+              style={{
+                  maxWidth: "720px",
+                  margin: "0 auto",
+                  padding: "6rem 1.5rem",
+                  textAlign: "left",
+              }}
+          >
+              <h1 style={{ fontSize: "2.2rem", marginBottom: "0.5rem" }}>
+                  Su Yeon Tech History
+              </h1>
+
+              <p style={{ color: "var(--ifm-color-emphasis-600)", marginBottom: "2rem" }}>
+                  백엔드 개발자로서의 실무 기록과 기술 정리
+              </p>
+
+              <div style={{ display: "flex", gap: "0.75rem" }}>
+                  <Link className="button button--primary" to="/blog">
+                      Blog
+                  </Link>
+                  <Link className="button button--secondary" to="/docs/intro">
+                      Notes
+                  </Link>
+              </div>
+          </main>
+      </Layout>
   );
 }

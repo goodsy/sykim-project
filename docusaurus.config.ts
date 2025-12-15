@@ -3,7 +3,7 @@ import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
-    title: 'Kim Su Yeon',
+    title: 'goodsy\'s 기술 기록',
     tagline: '결제 정산·배치 시스템 백엔드 개발',
     favicon: 'img/favicon.ico',
 
@@ -18,6 +18,9 @@ const config: Config = {
     organizationName: 'goodsy',
     projectName: 'sykim-project',
 
+    //deploymentBranch: "gh-pages",
+    //trailingSlash: false,
+
     onBrokenLinks: 'throw',
     onBrokenMarkdownLinks: 'warn',
 
@@ -28,56 +31,57 @@ const config: Config = {
 
     presets: [
         [
-            'classic',
+            "classic",
             {
-                docs: {
-                    sidebarPath: './sidebars.ts',
-                    // 네 repo로 바꾸는 게 맞음 (원래는 docusaurus 템플릿 URL이었음)
-                    editUrl: 'https://github.com/goodsy/sykim-project/tree/main/',
-                },
+             /*   docs: {
+                    routeBasePath: "docs",
+                    sidebarPath: require.resolve("./sidebars.ts"),
+                    breadcrumbs: true,
+                },*/
+
                 blog: {
+                    routeBasePath: "/",
+                    blogTitle: "Blog",
+                    blogDescription: "Recent posts",
                     showReadingTime: true,
-                    feedOptions: {
-                        type: ['rss', 'atom'],
-                        xslt: true,
-                    },
-                    editUrl: 'https://github.com/goodsy/sykim-project/tree/main/',
-                    onInlineTags: 'warn',
-                    onInlineAuthors: 'warn',
-                    onUntruncatedBlogPosts: 'warn',
+                    postsPerPage: 10,
+                   /* blogSidebar: {
+                        // ✅ 소개를 sidebar로 고정
+                        about: [
+                            {
+                                type: "html",
+                                value: require("./src/components/BlogAbout").default,
+                                defaultStyle: true,
+                            },
+                        ],
+                    },*/
                 },
+
                 theme: {
-                    customCss: './src/css/custom.css',
+                    customCss: require.resolve("./src/css/custom.css"),
                 },
-            } satisfies Preset.Options,
+            },
         ],
     ],
+
 
     themeConfig: {
         image: 'img/docusaurus-social-card.jpg',
         colorMode: {
+            defaultMode: "dark",
             respectPrefersColorScheme: true,
         },
-
         navbar: {
-            title: 'Kim Su Yeon',
-            logo: {
-                alt: 'Kim Su Yeon Logo',
-                src: 'img/logo.svg',
-            },
-            items: [
-                // ✅ docs 라우팅은 "type: doc" / "type: docSidebar"를 쓰는 게 제일 안전함
-                {
-                    type: 'doc',
-                    docId: 'intro',
-                    position: 'left',
-                    label: '포트폴리오',
-                },
-                {to: '/about', label: '소개', position: 'left'},
-                {to: '/blog', label: '기술블로그', position: 'left'},
+            title: 'goodsy',
 
+            items: [
+                { to: "/", label: "Home", position: "left", className: "navbar-brand-text" },
+                { to: "/tags/tech", label: "Tech", position: "left" },
+                //{ to: "/tags/worklog", label: "Worklog", position: "left" },
+                //{ to: "/tags/notes", label: "Notes", position: "left" },
+                { to: "/archive", label: "Archive", position: "left" },
                 {
-                    href: 'https://github.com/goodsy/sykim-project',
+                    href: 'https://github.com/goodsy',
                     label: 'GitHub',
                     position: 'right',
                 },
@@ -90,14 +94,12 @@ const config: Config = {
                 {
                     title: 'Contents',
                     items: [
-                        // ✅ /docs 대신 실제 문서로 링크 (깨질 확률 가장 낮음)
-                        {label: '포트폴리오', to: '/docs/intro'},
-                        {label: '기술블로그', to: '/blog'},
-                        {label: '소개', to: '/about'},
+                        //{ label: "Docs", to: "/docs/intro" },
+                        { label: "Blog", to: "/blog" },
                     ],
                 },
                 {
-                    title: 'Links',
+                    title: 'Me',
                     items: [
                         {label: 'GitHub', href: 'https://github.com/goodsy'},
                         {label: 'Repository', href: 'https://github.com/goodsy/sykim-project'},
@@ -110,6 +112,7 @@ const config: Config = {
         prism: {
             theme: prismThemes.github,
             darkTheme: prismThemes.dracula,
+            additionalLanguages: ["java", "sql", "bash", "json"],
         },
     } satisfies Preset.ThemeConfig,
 };

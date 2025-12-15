@@ -1,30 +1,160 @@
-/**
- * Any CSS included here will be global. The classic template
- * bundles Infima by default. Infima is a CSS framework designed to
- * work well for content-centric websites.
- */
-
-/* You can override the default Infima variables here. */
 :root {
-  --ifm-color-primary: #2e8555;
-  --ifm-color-primary-dark: #29784c;
-  --ifm-color-primary-darker: #277148;
-  --ifm-color-primary-darkest: #205d3b;
-  --ifm-color-primary-light: #33925d;
-  --ifm-color-primary-lighter: #359962;
-  --ifm-color-primary-lightest: #3cad6e;
-  --ifm-code-font-size: 95%;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+    --ifm-color-primary: #6f6a8a;        /* dusty purple */
+    --ifm-color-primary-dark: #625e7a;
+    --ifm-color-primary-darker: #58546f;
+    --ifm-color-primary-darkest: #47445a;
+    --ifm-color-primary-light: #7d7896;
+    --ifm-color-primary-lighter: #8b86a3;
+    --ifm-color-primary-lightest: #a29db8;
+
+    --ifm-navbar-shadow: none;
+    --ifm-toc-border-color: transparent;
 }
 
-/* For readability concerns, you should choose a lighter palette in dark mode. */
-[data-theme='dark'] {
-  --ifm-color-primary: #25c2a0;
-  --ifm-color-primary-dark: #21af90;
-  --ifm-color-primary-darker: #1fa588;
-  --ifm-color-primary-darkest: #1a8870;
-  --ifm-color-primary-light: #29d5b0;
-  --ifm-color-primary-lighter: #32d8b4;
-  --ifm-color-primary-lightest: #4fddbf;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+/* 링크도 은은하게 */
+a { text-decoration: none; }
+a:hover { text-decoration: underline; text-underline-offset: 5px; }
+
+/* 카드/경계선 미니멀 */
+.card { box-shadow: none; }
+
+/* ─────────────────────────
+   Navbar (slightly darker)
+   ───────────────────────── */
+:root {
+    --brand-purple: #b1a2fa;
+}
+
+/* ─────────────────────────
+   Navbar (one tone darker)
+   ───────────────────────── */
+.navbar {
+    background-color: #e2defc; /* 연보라 한 톤 진하게 */
+    border-bottom: 1px solid rgba(120, 110, 200, 0.2);
+    box-shadow: none;
+}
+
+/* 메뉴 텍스트 */
+.navbar__link {
+    color: #3e3b4f;
+    font-weight: 500;
+}
+
+/* Hover */
+.navbar__link:hover {
+    color: #6f63d9;
+}
+
+/* Active */
+.navbar__link--active {
+    color: var(--brand-purple);
+    text-decoration: underline;
+    text-underline-offset: 6px;
+}
+
+/* 브랜드 텍스트 */
+.navbar-brand-text {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #3b3850 !important;
+}
+
+
+/* ─────────────
+   Body Links
+   ───────────── */
+.markdown a {
+    color: #6f63d9;               /* 포인트보다 살짝 다운 */
+    text-decoration: none;
+    border-bottom: 1px solid rgba(177, 162, 250, 0.35);
+}
+
+.markdown a:hover {
+    color: #5b50c9;
+    border-bottom-color: rgba(177, 162, 250, 0.7);
+}
+
+/* ─────────────
+   Inline code
+   ───────────── */
+.markdown code {
+    background-color: #f2f0fd;
+    color: #4a4580;
+    padding: 0.15em 0.35em;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+/* ─────────────
+   Code blocks
+   ───────────── */
+.theme-code-block {
+    background-color: #1f1e2a;   /* 아주 어두운 보라 회색 */
+    border-radius: 8px;
+    box-shadow: none;
+}
+
+.theme-code-block-title {
+    background-color: #2a2838;
+    color: #d6d1ff;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+
+.theme-code-block pre {
+    background: transparent;
+}
+
+
+[data-theme="dark"] .navbar {
+    background-color: #2c2a3a;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .navbar__link {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme="dark"] .navbar__link--active {
+    color: #d6d1ff;
+}
+
+[data-theme="dark"] .markdown code {
+    background-color: #2a2738;
+    color: #d6d1ff;
+}
+
+
+
+.blog-about {
+    margin: 1.2rem auto 1.6rem;
+    padding: 1rem 1.1rem;
+    max-width: var(--ifm-container-width);
+    border: 1px solid rgba(120, 110, 200, 0.18);
+    background: rgba(236, 233, 253, 0.6); /* 연보라 톤 */
+    border-radius: 10px;
+}
+
+.blog-about__title {
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+    color: #3b3850;
+}
+
+.blog-about__line {
+    color: rgba(62, 59, 79, 0.9);
+    margin-bottom: 0.8rem;
+}
+
+.blog-about__grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    font-size: 0.95rem;
+}
+
+@media (max-width: 996px) {
+    .blog-about__grid {
+        grid-template-columns: 1fr;
+    }
 }

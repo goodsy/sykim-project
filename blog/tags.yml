@@ -1,19 +1,9 @@
-facebook:
-  label: Facebook
-  permalink: /facebook
-  description: Facebook tag description
-
-hello:
-  label: Hello
-  permalink: /hello
-  description: Hello tag description
-
-docusaurus:
-  label: Docusaurus
-  permalink: /docusaurus
-  description: Docusaurus tag description
-
-hola:
-  label: Hola
-  permalink: /hola
-  description: Hola tag description
+tech:
+  label: Tech
+  description: 설계, 코드, 트러블슈팅
+worklog:
+  label: Worklog
+  description: 운영, 회고, 일의 방식
+notes:
+  label: Notes
+  description: 읽고 배운 것, 짧은 정리
