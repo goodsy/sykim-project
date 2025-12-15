@@ -95,7 +95,7 @@ const config: Config = {
                     title: 'Contents',
                     items: [
                         //{ label: "Docs", to: "/docs/intro" },
-                        { label: "Blog", to: "/blog" },
+                        { label: "Blog", to: "/" },
                     ],
                 },
                 {
