@@ -3,7 +3,7 @@ import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
-    title: 'goodsy\'s 기술 기록',
+    title: 'goodsy\'s 개발 기록',
     tagline: '결제 정산·배치 시스템 백엔드 개발',
     favicon: 'img/favicon.ico',
 
@@ -38,23 +38,12 @@ const config: Config = {
                     sidebarPath: require.resolve("./sidebars.ts"),
                     breadcrumbs: true,
                 },*/
-
                 blog: {
-                    routeBasePath: "/",
+                    routeBasePath: "/blog",
                     blogTitle: "Blog",
                     blogDescription: "Recent posts",
                     showReadingTime: true,
                     postsPerPage: 10,
-                   /* blogSidebar: {
-                        // ✅ 소개를 sidebar로 고정
-                        about: [
-                            {
-                                type: "html",
-                                value: require("./src/components/BlogAbout").default,
-                                defaultStyle: true,
-                            },
-                        ],
-                    },*/
                 },
 
                 theme: {
@@ -76,10 +65,11 @@ const config: Config = {
 
             items: [
                 { to: "/", label: "Home", position: "left", className: "navbar-brand-text" },
-                { to: "/tags/tech", label: "Tech", position: "left" },
-                //{ to: "/tags/worklog", label: "Worklog", position: "left" },
-                //{ to: "/tags/notes", label: "Notes", position: "left" },
-                { to: "/archive", label: "Archive", position: "left" },
+                { to: "/blog", label: "Blog", position: "left" },
+                { to: "/blog/tags/tech", label: "Tech", position: "left" },
+                { to: "/blog/tags/worklog", label: "Worklog", position: "left" },
+                { to: "/blog/tags/notes", label: "Notes", position: "left" },
+                //{ to: "/archive", label: "Archive", position: "left" },
                 {
                     href: 'https://github.com/goodsy',
                     label: 'GitHub',
@@ -95,7 +85,7 @@ const config: Config = {
                     title: 'Contents',
                     items: [
                         //{ label: "Docs", to: "/docs/intro" },
-                        { label: "Blog", to: "/" },
+                        { label: "Blog", to: "/blog" },
                     ],
                 },
                 {
