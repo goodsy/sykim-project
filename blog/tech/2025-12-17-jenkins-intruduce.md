@@ -1,5 +1,5 @@
 ---
-title: 왜 Jenkins를 도입했는가
+title: 왜 Jenkins를 도입하는가
 description: Quartz 단독 배치 운영의 한계와 Jenkins 도입을 결정한 이유
 tags: [tech]
 ---
