@@ -1,0 +1,1 @@
+"use strict";(globalThis.webpackChunksykim_project=globalThis.webpackChunksykim_project||[]).push([[1903],{1912:s=>{s.exports=JSON.parse('{"blogBasePath":"/sykim-project/","blogTitle":"Blog","authorsListPath":"/sykim-project/authors"}')}}]);
