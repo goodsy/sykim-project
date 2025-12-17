@@ -1,0 +1,278 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+    <id>https://goodsy.github.io/sykim-project/blog</id>
+    <title>goodsy's 개발 기록 Blog</title>
+    <updated>2025-12-17T00:00:00.000Z</updated>
+    <generator>https://github.com/jpmonette/feed</generator>
+    <link rel="alternate" href="https://goodsy.github.io/sykim-project/blog"/>
+    <subtitle>goodsy's 개발 기록 Blog</subtitle>
+    <icon>https://goodsy.github.io/sykim-project/img/favicon.ico</icon>
+    <entry>
+        <title type="html"><![CDATA[왜 Jenkins를 도입했는가]]></title>
+        <id>https://goodsy.github.io/sykim-project/blog/2025/12/17/tech/jenkins-intruduce</id>
+        <link href="https://goodsy.github.io/sykim-project/blog/2025/12/17/tech/jenkins-intruduce"/>
+        <updated>2025-12-17T00:00:00.000Z</updated>
+        <summary type="html"><![CDATA[Quartz 단독 배치 운영의 한계와 Jenkins 도입을 결정한 이유]]></summary>
+        <content type="html"><![CDATA[<p><em>Quartz 단독 배치 운영의 한계와 Jenkins 도입을 결정한 이유</em></p>
+<p>배치 시스템을 설계할 때 가장 먼저 떠오르는 선택지는 보통 <strong>Quartz</strong>다.<br>
+<!-- -->애플리케이션 내부에서 스케줄을 관리할 수 있고 코드 기반으로 제어하기도 쉽다.</p>
+<p>나 역시 처음에는 Quartz 단독 구조로 배치를 운영했다.<br>
+<!-- -->문제는 <strong>배치가 “돌아가는 것”과 “운영되는 것”은 다르다</strong>는 점이었다.</p>
+<p>이 글은 Jenkins의 기능을 소개하기 위한 글이 아니며<br>
+<!-- -->정산·배치 시스템을 운영하면서 <strong>왜 Jenkins가 필요해졌는지</strong>,<br>
+<!-- -->그리고 <strong>어떤 문제를 해결하기 위해 도입했는지</strong>를 정리한 기록이다.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quartz-단독-구조에서-시작했다">Quartz 단독 구조에서 시작했다<a href="https://goodsy.github.io/sykim-project/blog/2025/12/17/tech/jenkins-intruduce#quartz-%EB%8B%A8%EB%8F%85-%EA%B5%AC%EC%A1%B0%EC%97%90%EC%84%9C-%EC%8B%9C%EC%9E%91%ED%96%88%EB%8B%A4" class="hash-link" aria-label="Quartz 단독 구조에서 시작했다에 대한 직접 링크" title="Quartz 단독 구조에서 시작했다에 대한 직접 링크" translate="no">​</a></h2>
+<p>초기 배치 구조는 단순했다.</p>
+<ul>
+<li class="">애플리케이션 내부에 Quartz Scheduler</li>
+<li class="">정해진 시간에 배치 실행</li>
+<li class="">실패 시 로그 확인 후 재실행</li>
+</ul>
+<p>기능적으로는 충분했다.<br>
+<!-- -->문제는 <strong>운영 상황</strong>에서 드러나기 시작했다.</p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="문제가-된-건-장애-상황이었다">문제가 된 건 “장애 상황”이었다<a href="https://goodsy.github.io/sykim-project/blog/2025/12/17/tech/jenkins-intruduce#%EB%AC%B8%EC%A0%9C%EA%B0%80-%EB%90%9C-%EA%B1%B4-%EC%9E%A5%EC%95%A0-%EC%83%81%ED%99%A9%EC%9D%B4%EC%97%88%EB%8B%A4" class="hash-link" aria-label="문제가 된 건 “장애 상황”이었다에 대한 직접 링크" title="문제가 된 건 “장애 상황”이었다에 대한 직접 링크" translate="no">​</a></h3>
+<p>배치 실행 중 장애가 발생하면 항상 비슷한 질문이 나왔다.</p>
+<ul>
+<li class="">서버가 내려간 건가?</li>
+<li class="">애플리케이션이 기동에 실패한 건가?</li>
+<li class="">배치 로직 자체가 실패한 건가?</li>
+</ul>
+<p>Quartz 단독 구조에서는<br>
+<!-- -->이 세 가지가 <strong>운영 관점에서 명확히 구분되지 않았다.</strong></p>
+<blockquote>
+<p>결과적으로는 모두<br>
+<!-- -->**'배치가 안 돈다'**로 보였기 때문이다.</p>
+</blockquote>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="요약-quartz-단독-운영에서-느낀-한계">요약: Quartz 단독 운영에서 느낀 한계<a href="https://goodsy.github.io/sykim-project/blog/2025/12/17/tech/jenkins-intruduce#%EC%9A%94%EC%95%BD-quartz-%EB%8B%A8%EB%8F%85-%EC%9A%B4%EC%98%81%EC%97%90%EC%84%9C-%EB%8A%90%EB%82%80-%ED%95%9C%EA%B3%84" class="hash-link" aria-label="요약: Quartz 단독 운영에서 느낀 한계에 대한 직접 링크" title="요약: Quartz 단독 운영에서 느낀 한계에 대한 직접 링크" translate="no">​</a></h3>
+<ul>
+<li class="">서버 장애 = 스케줄러 중단</li>
+<li class="">장애 원인 파악에 시간 소요</li>
+<li class="">재처리 시 개발자 개입 빈번</li>
+<li class="">운영자가 직접 제어하기 어려움</li>
+</ul>
+<p>Quartz가 나쁘다기보다는,<br>
+<strong>정산·회계 배치 운영에는 부족한 부분이 있었다.</strong></p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="배치-운영에서-더-중요했던-것">배치 운영에서 더 중요했던 것<a href="https://goodsy.github.io/sykim-project/blog/2025/12/17/tech/jenkins-intruduce#%EB%B0%B0%EC%B9%98-%EC%9A%B4%EC%98%81%EC%97%90%EC%84%9C-%EB%8D%94-%EC%A4%91%EC%9A%94%ED%96%88%EB%8D%98-%EA%B2%83" class="hash-link" aria-label="배치 운영에서 더 중요했던 것에 대한 직접 링크" title="배치 운영에서 더 중요했던 것에 대한 직접 링크" translate="no">​</a></h2>
+<p>배치를 운영하면서 점점 중요해진 것은<br>
+<!-- -->“정확한 시간에 실행”이 아니었다.</p>
+<p>오히려 아래와 같은 요구가 더 컸다.</p>
+<ul>
+<li class="">장애가 나도 빠르게 재실행할 수 있는가</li>
+<li class="">서버 장애가 전체 배치 중단으로 이어지지 않는가</li>
+<li class="">운영자가 직접 배치를 제어할 수 있는가</li>
+<li class="">재처리 이력이 명확히 남는가</li>
+</ul>
+<p>이 시점에서 우리는 이렇게 정리했다.</p>
+<blockquote>
+<p><strong>자동 스케줄링보다<br>
+<!-- -->운영 제어와 장애 대응이 더 중요하다</strong></p>
+</blockquote>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="jenkins를-검토하게-된-이유">Jenkins를 검토하게 된 이유<a href="https://goodsy.github.io/sykim-project/blog/2025/12/17/tech/jenkins-intruduce#jenkins%EB%A5%BC-%EA%B2%80%ED%86%A0%ED%95%98%EA%B2%8C-%EB%90%9C-%EC%9D%B4%EC%9C%A0" class="hash-link" aria-label="Jenkins를 검토하게 된 이유에 대한 직접 링크" title="Jenkins를 검토하게 된 이유에 대한 직접 링크" translate="no">​</a></h2>
+<p>Jenkins를 검토한 이유는 단순했다.</p>
+<blockquote>
+<p><strong>배치 실행의 주체를<br>
+<!-- -->애플리케이션 밖으로 분리하고 싶었다.</strong></p>
+</blockquote>
+<p>Jenkins는 배치를 “언제” 실행할지는 잘 모른다.<br>
+<!-- -->하지만 배치를 “어떻게 운영할지”에는 강점이 있다.</p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="jenkins-도입-후-기대하는-점">Jenkins 도입 후 기대하는 점<a href="https://goodsy.github.io/sykim-project/blog/2025/12/17/tech/jenkins-intruduce#jenkins-%EB%8F%84%EC%9E%85-%ED%9B%84-%EA%B8%B0%EB%8C%80%ED%95%98%EB%8A%94-%EC%A0%90" class="hash-link" aria-label="Jenkins 도입 후 기대하는 점에 대한 직접 링크" title="Jenkins 도입 후 기대하는 점에 대한 직접 링크" translate="no">​</a></h3>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-배치-실행-구조가-바뀐다">1. 배치 실행 구조가 바뀐다.<a href="https://goodsy.github.io/sykim-project/blog/2025/12/17/tech/jenkins-intruduce#1-%EB%B0%B0%EC%B9%98-%EC%8B%A4%ED%96%89-%EA%B5%AC%EC%A1%B0%EA%B0%80-%EB%B0%94%EB%80%90%EB%8B%A4" class="hash-link" aria-label="1. 배치 실행 구조가 바뀐다.에 대한 직접 링크" title="1. 배치 실행 구조가 바뀐다.에 대한 직접 링크" translate="no">​</a></h4>
+<ul>
+<li class="">Jenkins가 배치 실행을 트리거</li>
+<li class="">애플리케이션은 실행 대상</li>
+<li class="">실행 대상 서버는 교체 가능</li>
+</ul>
+<p>즉,<br>
+<strong>서버 장애가 나도 Jenkins는 살아 있고,<br>
+<!-- -->다른 서버에서 재실행할 수 있는 구조</strong>가 되었다.</p>
+<hr>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-장애-원인-분리가-명확해진다">2. 장애 원인 분리가 명확해진다.<a href="https://goodsy.github.io/sykim-project/blog/2025/12/17/tech/jenkins-intruduce#2-%EC%9E%A5%EC%95%A0-%EC%9B%90%EC%9D%B8-%EB%B6%84%EB%A6%AC%EA%B0%80-%EB%AA%85%ED%99%95%ED%95%B4%EC%A7%84%EB%8B%A4" class="hash-link" aria-label="2. 장애 원인 분리가 명확해진다.에 대한 직접 링크" title="2. 장애 원인 분리가 명확해진다.에 대한 직접 링크" translate="no">​</a></h4>
+<p>Jenkins 연계 구조에서는 장애가 명확히 나뉜다.</p>
+<ul>
+<li class="">애플리케이션 기동 실패 → 환경/인프라 문제</li>
+<li class="">배치 실행 실패 → 데이터/로직 문제</li>
+</ul>
+<p>운영 판단이 훨씬 빨라졌다.</p>
+<hr>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-재처리와-수동-실행이-쉬워진다">3. 재처리와 수동 실행이 쉬워진다.<a href="https://goodsy.github.io/sykim-project/blog/2025/12/17/tech/jenkins-intruduce#3-%EC%9E%AC%EC%B2%98%EB%A6%AC%EC%99%80-%EC%88%98%EB%8F%99-%EC%8B%A4%ED%96%89%EC%9D%B4-%EC%89%AC%EC%9B%8C%EC%A7%84%EB%8B%A4" class="hash-link" aria-label="3. 재처리와 수동 실행이 쉬워진다.에 대한 직접 링크" title="3. 재처리와 수동 실행이 쉬워진다.에 대한 직접 링크" translate="no">​</a></h4>
+<p>정산 배치는 재처리 작업이 많으며 이를 얼마나 유연하게 구성하느냐가 중요하다.</p>
+<ul>
+<li class="">특정 일자</li>
+<li class="">특정 대상</li>
+<li class="">특정 조건</li>
+</ul>
+<p>Jenkins에서는</p>
+<ul>
+<li class="">실행 이력</li>
+<li class="">파라미터</li>
+<li class="">실행 결과</li>
+</ul>
+<p>가 모두 남는다.</p>
+<p>운영자가 <strong>UI 기준으로 안전하게 재실행</strong>할 수 있게 되었다.</p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="jenkins-도입으로-얻은-이점">Jenkins 도입으로 얻은 이점<a href="https://goodsy.github.io/sykim-project/blog/2025/12/17/tech/jenkins-intruduce#jenkins-%EB%8F%84%EC%9E%85%EC%9C%BC%EB%A1%9C-%EC%96%BB%EC%9D%80-%EC%9D%B4%EC%A0%90" class="hash-link" aria-label="Jenkins 도입으로 얻은 이점에 대한 직접 링크" title="Jenkins 도입으로 얻은 이점에 대한 직접 링크" translate="no">​</a></h3>
+<ul>
+<li class="">서버 장애 대응 구조 개선</li>
+<li class="">장애 원인 분리</li>
+<li class="">재처리 안정성 향상</li>
+<li class="">운영자 중심 배치 제어</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="하지만-jenkins는-만능이-아니다">하지만, Jenkins는 만능이 아니다<a href="https://goodsy.github.io/sykim-project/blog/2025/12/17/tech/jenkins-intruduce#%ED%95%98%EC%A7%80%EB%A7%8C-jenkins%EB%8A%94-%EB%A7%8C%EB%8A%A5%EC%9D%B4-%EC%95%84%EB%8B%88%EB%8B%A4" class="hash-link" aria-label="하지만, Jenkins는 만능이 아니다에 대한 직접 링크" title="하지만, Jenkins는 만능이 아니다에 대한 직접 링크" translate="no">​</a></h2>
+<p>중요한 점은, Jenkins를 <strong>배치 로직 실행자</strong>로 사용하지 않았다는 것이다.</p>
+<p>그러기 위해서는 Jenkins와 Quartz, Application 역할 경계를 명확히 해야 했다.</p>
+<ul>
+<li class="">Jenkins: 실행 트리거, 운영 제어</li>
+<li class="">Quartz: 내부 정책성 스케줄</li>
+<li class="">Spring Batch: 상태 관리와 데이터 처리</li>
+</ul>
+<p>이 경계를 지키지 않으면  Jenkins는 새로운 기술 부채가 된다.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="결론">결론<a href="https://goodsy.github.io/sykim-project/blog/2025/12/17/tech/jenkins-intruduce#%EA%B2%B0%EB%A1%A0" class="hash-link" aria-label="결론에 대한 직접 링크" title="결론에 대한 직접 링크" translate="no">​</a></h2>
+<p>Quartz는 <strong>배치를 언제 실행할지</strong>에 강하다.</p>
+<p>Jenkins는 <strong>배치를 어떻게 운영할지</strong>에 강하다.</p>
+<p>정산·회계처럼 실패 시 재처리가 필요하고 운영 안정성이 중요한 배치에서는,</p>
+<blockquote>
+<p>Quartz 단독보다<br>
+<strong>Jenkins 연계 구조가 운영하기에 적합</strong>하지 않을까 생각한다.</p>
+<p>Jenkins는 장애가 났을 때 쓰는 도구가 아니라,<br>
+<!-- -->장애가 나도 배치 운영이 흔들리지 않게 만드는 도구다.</p>
+</blockquote>]]></content>
+        <category label="Tech" term="Tech"/>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[Notes (준비 중)]]></title>
+        <id>https://goodsy.github.io/sykim-project/blog/notes/notes-placeholder</id>
+        <link href="https://goodsy.github.io/sykim-project/blog/notes/notes-placeholder"/>
+        <updated>2025-12-15T14:48:19.000Z</updated>
+        <summary type="html"><![CDATA[Notes 글을 준비 중입니다.]]></summary>
+        <content type="html"><![CDATA[<p>Notes 글을 준비 중입니다.</p>]]></content>
+        <category label="Notes" term="Notes"/>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[Worklog (준비 중)]]></title>
+        <id>https://goodsy.github.io/sykim-project/blog/worklog/worklog-placeholder</id>
+        <link href="https://goodsy.github.io/sykim-project/blog/worklog/worklog-placeholder"/>
+        <updated>2025-12-15T14:48:19.000Z</updated>
+        <summary type="html"><![CDATA[Worklog 글을 준비 중입니다.]]></summary>
+        <content type="html"><![CDATA[<p>Worklog 글을 준비 중입니다.</p>]]></content>
+        <category label="Worklog" term="Worklog"/>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[이 기술블로그에서 앞으로 다룰 내용]]></title>
+        <id>https://goodsy.github.io/sykim-project/blog/2025/12/12/start-tech-blog</id>
+        <link href="https://goodsy.github.io/sykim-project/blog/2025/12/12/start-tech-blog"/>
+        <updated>2025-12-12T00:00:00.000Z</updated>
+        <summary type="html"><![CDATA[이 블로그는 단순한 기술 정리 공간이 아니라,]]></summary>
+        <content type="html"><![CDATA[<p>이 블로그는 단순한 기술 정리 공간이 아니라,<br>
+<strong>실무에서의 고민과 선택, 그리고 그 결과를 기록하는 공간</strong>으로 운영할 예정이다.</p>
+<p>백엔드 개발자로 일하며 느낀 점은,<br>
+<!-- -->기술 자체보다도  <strong>"어떤 상황에서 왜 이 선택을 했는지"</strong> 가 훨씬 중요하다는 것이다.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-정산결제pg-시스템-실무-기록">1. 정산·결제(PG) 시스템 실무 기록<a href="https://goodsy.github.io/sykim-project/blog/2025/12/12/start-tech-blog#1-%EC%A0%95%EC%82%B0%EA%B2%B0%EC%A0%9Cpg-%EC%8B%9C%EC%8A%A4%ED%85%9C-%EC%8B%A4%EB%AC%B4-%EA%B8%B0%EB%A1%9D" class="hash-link" aria-label="1. 정산·결제(PG) 시스템 실무 기록에 대한 직접 링크" title="1. 정산·결제(PG) 시스템 실무 기록에 대한 직접 링크" translate="no">​</a></h2>
+<p>가장 오래 다뤄온 영역인 <strong>결제(PG) 정산 시스템</strong>을 중심으로,<br>
+<!-- -->다음과 같은 내용을 정리할 계획이다.</p>
+<ul>
+<li class="">정산 기준정보 설계 (수수료율, 계산 방식, 세금계산서 기준)</li>
+<li class="">정산 배치 시스템 설계와 고도화 과정</li>
+<li class="">정산 중복 처리와 데이터 정합성 문제</li>
+<li class="">PG/외부 시스템 연동 시 고려해야 할 포인트</li>
+</ul>
+<p>실제 운영 환경에서 겪었던 문제와<br>
+<!-- -->그 문제를 해결하기 위해 어떤 구조와 방식을 선택했는지를 기록한다.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-spring-batch-기반-대량-처리와-성능-개선">2. Spring Batch 기반 대량 처리와 성능 개선<a href="https://goodsy.github.io/sykim-project/blog/2025/12/12/start-tech-blog#2-spring-batch-%EA%B8%B0%EB%B0%98-%EB%8C%80%EB%9F%89-%EC%B2%98%EB%A6%AC%EC%99%80-%EC%84%B1%EB%8A%A5-%EA%B0%9C%EC%84%A0" class="hash-link" aria-label="2. Spring Batch 기반 대량 처리와 성능 개선에 대한 직접 링크" title="2. Spring Batch 기반 대량 처리와 성능 개선에 대한 직접 링크" translate="no">​</a></h2>
+<p>대량 데이터 처리와 배치는 정산 시스템에서 빠질 수 없는 영역이다.</p>
+<ul>
+<li class="">Chunk vs Tasklet 선택 기준</li>
+<li class="">Skip / Retry 정책 설계 경험</li>
+<li class="">대량 Insert / Update 성능 개선</li>
+<li class="">배치 장애 발생 시 재처리 전략</li>
+</ul>
+<p>단순 기능 설명이 아닌,<br>
+<strong>운영 안정성과 성능을 함께 고려한 설계 관점</strong>을 중심으로 정리할 예정이다.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-트랜잭션-동시성-데이터-정합성">3. 트랜잭션, 동시성, 데이터 정합성<a href="https://goodsy.github.io/sykim-project/blog/2025/12/12/start-tech-blog#3-%ED%8A%B8%EB%9E%9C%EC%9E%AD%EC%85%98-%EB%8F%99%EC%8B%9C%EC%84%B1-%EB%8D%B0%EC%9D%B4%ED%84%B0-%EC%A0%95%ED%95%A9%EC%84%B1" class="hash-link" aria-label="3. 트랜잭션, 동시성, 데이터 정합성에 대한 직접 링크" title="3. 트랜잭션, 동시성, 데이터 정합성에 대한 직접 링크" translate="no">​</a></h2>
+<p>실무에서 가장 많은 고민이 필요한 주제 중 하나다.</p>
+<ul>
+<li class="">트랜잭션 Isolation Level 선택 기준</li>
+<li class="">Deadlock 발생 원인과 대응 경험</li>
+<li class="">동시성 충돌을 막기 위한 설계 방식</li>
+</ul>
+<p>이론보다는 <strong>실제 문제 상황과 선택의 결과</strong>를 중심으로 다룬다.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-운영-장애-대응-그리고-자동화">4. 운영, 장애 대응, 그리고 자동화<a href="https://goodsy.github.io/sykim-project/blog/2025/12/12/start-tech-blog#4-%EC%9A%B4%EC%98%81-%EC%9E%A5%EC%95%A0-%EB%8C%80%EC%9D%91-%EA%B7%B8%EB%A6%AC%EA%B3%A0-%EC%9E%90%EB%8F%99%ED%99%94" class="hash-link" aria-label="4. 운영, 장애 대응, 그리고 자동화에 대한 직접 링크" title="4. 운영, 장애 대응, 그리고 자동화에 대한 직접 링크" translate="no">​</a></h2>
+<p>서비스는 개발보다 운영에서 더 많은 배움을 준다.</p>
+<ul>
+<li class="">장애 알림 설계</li>
+<li class="">로그와 이력 기반 원인 분석</li>
+<li class="">재처리와 롤백 전략</li>
+<li class="">운영 효율을 높이기 위한 자동화</li>
+</ul>
+<p>“장애를 줄이는 코드”보다<br>
+<!-- -->**"장애를 빨리 파악하고 복구할 수 있는 구조"**에 대한 고민을 담을 예정이다.</p>
+<hr>
+<p>이 블로그의 글들은 완벽한 정답을 제시하기보다는,<br>
+<strong>실무에서 고민하고 선택했던 과정을 솔직하게 기록</strong>하는 데 목적이 있다.</p>
+<p>앞으로 이 공간에 쌓일 기록들이<br>
+<!-- -->스스로를 돌아보는 자료이자,<br>
+<!-- -->필요한 누군가에게는 작은 참고가 되었으면 한다.</p>]]></content>
+        <category label="기술블로그" term="기술블로그"/>
+        <category label="백엔드" term="백엔드"/>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[Batch 레거시 정산 시스템 고도화]]></title>
+        <id>https://goodsy.github.io/sykim-project/blog/2025/12/12/tech/batch-modernization</id>
+        <link href="https://goodsy.github.io/sykim-project/blog/2025/12/12/tech/batch-modernization"/>
+        <updated>2025-12-12T00:00:00.000Z</updated>
+        <summary type="html"><![CDATA[Batch 정산 시스템 개선 사항]]></summary>
+        <content type="html"><![CDATA[<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="batch-정산-시스템-개선-사항">Batch 정산 시스템 개선 사항<a href="https://goodsy.github.io/sykim-project/blog/2025/12/12/tech/batch-modernization#batch-%EC%A0%95%EC%82%B0-%EC%8B%9C%EC%8A%A4%ED%85%9C-%EA%B0%9C%EC%84%A0-%EC%82%AC%ED%95%AD" class="hash-link" aria-label="Batch 정산 시스템 개선 사항에 대한 직접 링크" title="Batch 정산 시스템 개선 사항에 대한 직접 링크" translate="no">​</a></h2>
+<p><strong>1. select - insert 구조 기반으로 기준정보와 거래원장 join으로 정산 기준정보 조회와 계산하는 로직으로 구현 됨</strong></p>
+<ul>
+<li class="">Job 또는 Step 실행 시, 기준정보 캐싱 조회 -&gt; 추후 Redis 연동</li>
+<li class="">캐싱된 기준정보와 정산 대 거래 원장의 정산 정보 생성</li>
+</ul>
+<p><strong>2. Domain Layer,  Batch Layer, Infra Layer 계층으로 재구조</strong></p>
+<ul>
+<li class="">데이터 정합성관련 설계<!-- -->
+<ul>
+<li class="">Table Unique Key</li>
+</ul>
+</li>
+</ul>
+<p><strong>3. Retry / Skip 정책</strong></p>
+<ul>
+<li class="">Retry : 외부 연동 실패 시</li>
+<li class="">Skip<!-- -->
+<ul>
+<li class="">정책 정의 필요<!-- -->
+<ul>
+<li class="">기준정보 누락</li>
+<li class="">거래금액 오류</li>
+</ul>
+</li>
+<li class="">각 정책의 Skip 건수가 일정 이상일 경우, 오류로 감지 Fail</li>
+<li class="">Skip 내역 Table 관리 -&gt; IMS 화면 조회 -&gt; 후처리 기능 -&gt; Batch 호출</li>
+</ul>
+</li>
+</ul>
+<p><strong>4. 재처리</strong></p>
+<ul>
+<li class="">각 Job별 후처리를 위한 Key 기반의 파라미터 정의</li>
+</ul>
+<p><strong>5. Batch 시, 실행결과 조회 및 후처리 기능</strong></p>
+<p><strong>6. 테스트 기간을 축소하기 위한 테스트 코드 작성</strong></p>
+<ul>
+<li class="">테스트 지원을 위한 테스트 코드</li>
+</ul>
+<p><strong>7. JPA VS mybatis/JDBC Cursor template</strong></p>
+<table><thead><tr><th style="text-align:left">기능</th><th style="text-align:left">기술</th><th style="text-align:left">이유</th></tr></thead><tbody><tr><td style="text-align:left">도메인 규칙 처리 소량 조회</td><td style="text-align:left">JPA</td><td style="text-align:left">1차 캐싱, 영속성 컨테스트 관리로 인한 메모리 사용, Flush/clear 비용 등으로 인한 성능 저하 가능성</td></tr><tr><td style="text-align:left">대량의 데이터 조회(Reader)</td><td style="text-align:left">JDBC Cursor</td><td style="text-align:left">메모리에 한 번에 올리지 않고 스트리밍 형태로 받아옴</td></tr><tr><td style="text-align:left">대량 Insert/Update</td><td style="text-align:left">JDBC+MERGE</td><td style="text-align:left">한 번의 건을 Chunk 트랜잭션 커밋 단위로 처리</td></tr></tbody></table>]]></content>
+        <category label="Tech" term="Tech"/>
+    </entry>
+</feed>
