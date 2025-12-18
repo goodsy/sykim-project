@@ -38,7 +38,7 @@ export default function Home() {
                         문서, 글, 자료 등을 읽고 정리한 내용입니다.<br/>
                         개념 정리와 참고 기록을 중심으로 남깁니다.
                     </p>
-                    <Link to="/blog/tags/notes">→ Worklog 글 보기</Link>
+                    <Link to="/blog/tags/notes">→ Notes 글 보기</Link>
                 </section>
 
                 {/*<div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>*/}
