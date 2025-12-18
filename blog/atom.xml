@@ -132,7 +132,7 @@
 <!-- -->이 세 가지가 <strong>운영 관점에서 명확히 구분되지 않았다.</strong></p>
 <blockquote>
 <p>결과적으로는 모두<br>
-<!-- -->**'배치가 안 돈다'**로 보였기 때문이다.</p>
+<strong>"정배치가 안 돈다"</strong> 로 보였기 때문이다.</p>
 </blockquote>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="quartz-단독-운영에서-느낀-한계">Quartz 단독 운영에서 느낀 한계<a href="https://goodsy.github.io/sykim-project/blog/2025/12/17/tech/jenkins-intruduce#quartz-%EB%8B%A8%EB%8F%85-%EC%9A%B4%EC%98%81%EC%97%90%EC%84%9C-%EB%8A%90%EB%82%80-%ED%95%9C%EA%B3%84" class="hash-link" aria-label="Quartz 단독 운영에서 느낀 한계에 대한 직접 링크" title="Quartz 단독 운영에서 느낀 한계에 대한 직접 링크" translate="no">​</a></h3>
 <ul>
@@ -219,9 +219,9 @@
 <p>이 경계를 지키지 않으면  Jenkins는 새로운 기술 부채가 된다.</p>
 <hr>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="결론">결론<a href="https://goodsy.github.io/sykim-project/blog/2025/12/17/tech/jenkins-intruduce#%EA%B2%B0%EB%A1%A0" class="hash-link" aria-label="결론에 대한 직접 링크" title="결론에 대한 직접 링크" translate="no">​</a></h2>
-<p>Quartz는 <strong>배치를 언제 실행할지</strong>에 강하다.</p>
-<p>Jenkins는 <strong>배치를 어떻게 운영할지</strong>에 강하다.</p>
-<p>정산·회계처럼 실패 시 재처리가 필요하고 운영 안정성이 중요한 배치에서는,</p>
+<p>Quartz는 <strong>배치를 언제 실행할지</strong>에 강하다.
+Jenkins는 <strong>배치를 어떻게 운영할지</strong>에 강하다.
+정산·회계처럼 실패 시 재처리가 필요하고 운영 안정성이 중요한 배치에서는,</p>
 <blockquote>
 <p>Quartz 단독보다<br>
 <strong>Jenkins 연계 구조가 운영하기에 적합</strong>하지 않을까 생각한다.</p>
