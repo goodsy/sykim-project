@@ -15,8 +15,7 @@
             <pubDate>Wed, 24 Dec 2025 00:00:00 GMT</pubDate>
             <description><![CDATA[Jenkins, Quartz(Scheduled), Spring Batch의 역할 경계와 연계 방식]]></description>
             <content:encoded><![CDATA[<p><em>Jenkins · Quartz(Scheduled) · Spring Batch의 역할 경계</em></p>
-<p>1편에서는<br>
-<strong>왜 Jenkins를 도입해야 했는지</strong>를 운영 경험을 중심으로 정리했다.</p>
+<p>이전 글에서 <a class="" href="https://goodsy.github.io/sykim-project/blog/2025/12/17/tech/jenkins-intruduce">왜 Jenkins를 도입하는가</a>를 운영 경험을 중심으로 정리했다.</p>
 <p>배치가 단순히 “정해진 시간에 잘 도는 것”보다<br>
 <strong>장애가 발생했을 때 어떻게 대응할 수 있는지</strong>,<br>
 <strong>누가 어떤 기준으로 재실행할 수 있는지</strong>가 점점 더 중요해졌기 때문이다.</p>
