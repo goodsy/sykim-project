@@ -7,8 +7,7 @@ tags: [tech]
 # Jenkins 연계 구조와 설계
 _Jenkins · Quartz(Scheduled) · Spring Batch의 역할 경계_
 
-1편에서는  
-**왜 Jenkins를 도입해야 했는지**를 운영 경험을 중심으로 정리했다.
+이전 글에서 [왜 Jenkins를 도입하는가](./2025-12-17-jenkins-intruduce.md)를 운영 경험을 중심으로 정리했다.
 
 배치가 단순히 “정해진 시간에 잘 도는 것”보다  
 **장애가 발생했을 때 어떻게 대응할 수 있는지**,  
