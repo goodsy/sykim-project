@@ -47,7 +47,7 @@ runCatching {
 
 ## 기본 사용법
 
-### 1️⃣ 성공 / 실패 분기 처리
+### 성공 / 실패 분기 처리
 
 ```kotlin
 runCatching {
@@ -65,7 +65,7 @@ runCatching {
 
 ---
 
-### 2️⃣ 기본값 반환 (`getOrElse`, `getOrNull`)
+### 기본값 반환 (`getOrElse`, `getOrNull`)
 
 #### getOrElse
 
@@ -91,7 +91,8 @@ val response: Response? = runCatching {
 
 ---
 
-### 3️⃣ 예외 재던지기 (`getOrThrow`)
+
+### 예외 재던지기 (`getOrThrow`)
 
 ```kotlin
 val result = runCatching {
@@ -194,7 +195,7 @@ runCatching {
 | 항목    | 설명            |
 | ----- | ------------- |
 | 목적    | try-catch 간결화 |
-| 반환 타입 | Result<T>     |
+| 반환 타입 | `Result<T>`    |
 | 장점    | 가독성, 함수형 스타일  |
 | 주의    | 예외 은폐 금지      |
 
