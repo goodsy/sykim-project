@@ -44,7 +44,7 @@ tags: [tech, monitoring]
 
 # 관제 범위 (5단계 Layer 기준)
 
-장애 흐름에 따라 전체 구간을 정의하되, 개발/운영 파트에서 직접 제어 가능한 영역(L4 App / L5 DB)을 핵심 관제 구간으로 설정합니다.
+장애 흐름에 따라 전체 구간을 정의하되, 개발/운영 파트에서 직접 제어 가능한 영역(L4 App / L5 DB)을 핵심 관제 구간으로 도입한다.
 
 | Layer | 구분 | 주요 관제 요소 | 활용 도구 | 비고 |
 |---|---|---|---|---|
@@ -106,14 +106,24 @@ tags: [tech, monitoring]
 
 ---
 
-# Prometheus + Grafana + Actuator + Scouter 아키텍처
+# Scouter & Spring Actuator + Micrometer + Prometheus + Grafana 아키텍처
 
-아래 아키텍처는 **메트릭(시간계열)** 과 **APM/트레이스(JVM/트랜잭션)** 를 분리해서 관제하는 구조입니다.
+| **기술명** | **설명 및 목적** |
+| --- | --- |
+| **Scouter** | 실시간 APM(Application Performance Monitoring). 서비스별 부하 및 상세 트랜잭션 추적. |
+| **Spring Actuator** | 어플리케이션의 상태 정보(Health, Metrics)를 HTTP 엔드포인트로 노출. |
+| **Micrometer** | 다양한 모니터링 시스템 간의 파사드 역할을 하여 지표를 표준화(Prometheus 형식 등). |
+| **Prometheus** | 시계열 데이터베이스(TSDB). Actuator가 노출한 지표를 주기적으로 Pull링하여 저장. |
+| **Grafana** | 저장된 지표를 시각화. 대시보드 구축 및 알람 규칙 설정. |
 
-- **Actuator/Micrometer → Prometheus** : 애플리케이션 메트릭을 Pull 방식으로 수집
-- **Prometheus → Grafana** : 대시보드/시각화, Alerting
-- **Scouter Agent → Scouter Server** : JVM/트랜잭션/SQL 추적(실시간 APM)
-- (선택) **Alertmanager/Telegram/Slack** : 알림 채널
+**시스템 아키텍처**
+
+1. **Application**에서 Micrometer/Actuator를 통해 지표 생성.
+2. **Actuator/Micrometer → Prometheus**가 주기적으로 데이터를 수집(Pull).
+3. **Scouter Agent**가 JVM 및 트랜잭션 정보를 Scouter Server로 전송.
+4. **Grafana**가 Prometheus 데이터를 쿼리하여 대시보드 출력
+5. (선택) **Alertmanager/Telegram/Slack** : 알림 채널
+
 
 ---
 
