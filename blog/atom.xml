@@ -2,11 +2,132 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
     <id>https://goodsy.github.io/sykim-project/blog</id>
     <title>goodsy's 개발 기록 Blog</title>
-    <updated>2026-01-15T00:00:00.000Z</updated>
+    <updated>2026-02-19T00:00:00.000Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
     <link rel="alternate" href="https://goodsy.github.io/sykim-project/blog"/>
     <subtitle>goodsy's 개발 기록 Blog</subtitle>
     <icon>https://goodsy.github.io/sykim-project/img/favicon.ico</icon>
+    <entry>
+        <title type="html"><![CDATA[Scouter 기반 관제 시스템 구축기]]></title>
+        <id>https://goodsy.github.io/sykim-project/blog/2026/02/19/tech/scouter-system-construction</id>
+        <link href="https://goodsy.github.io/sykim-project/blog/2026/02/19/tech/scouter-system-construction"/>
+        <updated>2026-02-19T00:00:00.000Z</updated>
+        <summary type="html"><![CDATA[Scouter 도입하기]]></summary>
+        <content type="html"><![CDATA[<p>결제 서비스는 특성상 <strong>단 1분의 장애도 매출 손실</strong>로 이어지고, 사용자 경험 악화로 인해 <strong>서비스 신뢰도</strong>가 빠르게 하락한다.
+따라서 장애 발생 이후에 로그를 뒤져 원인을 찾는 사후 대응 방식(Post-Mortem)에서 벗어나, 장애 징후를 <strong>선제적으로 탐지</strong>하고 문제 구간을 <strong>즉시 식별</strong>할 수 있는 관제 시스템이 필요하다.</p>
+<p>관제 시스템의 목적은 단순히 서버가 살아있다/죽었다를 보는 것이 아니라, <strong>서비스가 정상적으로 결제 성공을 만들고 있는지</strong>를 데이터로 확인하는 것이다.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="현재-현황">현재 현황<a href="https://goodsy.github.io/sykim-project/blog/2026/02/19/tech/scouter-system-construction#%ED%98%84%EC%9E%AC-%ED%98%84%ED%99%A9" class="hash-link" aria-label="현재 현황에 대한 직접 링크" title="현재 현황에 대한 직접 링크" translate="no">​</a></h2>
+<p>현재 시스템의 관제는 주로 다음과 같은 <strong>인프라 중심 모니터링</strong>에 집중되어 있다.</p>
+<ul>
+<li class="">CPU</li>
+<li class="">Memory</li>
+<li class="">Disk</li>
+</ul>
+<p>즉, “서버 리소스가 정상인가?”는 확인 가능하지만, 실제 장애 상황에서 가장 중요한 결제 실패 원인(외부 연동, 내부 로직, DB 병목)을 빠르게 특정하기 어려운 상황이였다.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="관제-시스템이-해결해야-하는-문제">관제 시스템이 해결해야 하는 문제<a href="https://goodsy.github.io/sykim-project/blog/2026/02/19/tech/scouter-system-construction#%EA%B4%80%EC%A0%9C-%EC%8B%9C%EC%8A%A4%ED%85%9C%EC%9D%B4-%ED%95%B4%EA%B2%B0%ED%95%B4%EC%95%BC-%ED%95%98%EB%8A%94-%EB%AC%B8%EC%A0%9C" class="hash-link" aria-label="관제 시스템이 해결해야 하는 문제에 대한 직접 링크" title="관제 시스템이 해결해야 하는 문제에 대한 직접 링크" translate="no">​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="-장애-인지-시간mttd-단축">✅ 장애 인지 시간(MTTD) 단축<a href="https://goodsy.github.io/sykim-project/blog/2026/02/19/tech/scouter-system-construction#-%EC%9E%A5%EC%95%A0-%EC%9D%B8%EC%A7%80-%EC%8B%9C%EA%B0%84mttd-%EB%8B%A8%EC%B6%95" class="hash-link" aria-label="✅ 장애 인지 시간(MTTD) 단축에 대한 직접 링크" title="✅ 장애 인지 시간(MTTD) 단축에 대한 직접 링크" translate="no">​</a></h3>
+<ul>
+<li class="">실시간 알림을 통해 장애를 <strong>즉시 인지</strong></li>
+<li class="">CS 제보보다 관제가 먼저 반응하는 구조</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="-원인-파악-및-복구-시간mttr-단축">✅ 원인 파악 및 복구 시간(MTTR) 단축<a href="https://goodsy.github.io/sykim-project/blog/2026/02/19/tech/scouter-system-construction#-%EC%9B%90%EC%9D%B8-%ED%8C%8C%EC%95%85-%EB%B0%8F-%EB%B3%B5%EA%B5%AC-%EC%8B%9C%EA%B0%84mttr-%EB%8B%A8%EC%B6%95" class="hash-link" aria-label="✅ 원인 파악 및 복구 시간(MTTR) 단축에 대한 직접 링크" title="✅ 원인 파악 및 복구 시간(MTTR) 단축에 대한 직접 링크" translate="no">​</a></h3>
+<ul>
+<li class="">장애 발생 시 <strong>App / DB / 외부 연동 구간을 명확히 분리</strong></li>
+<li class="">“어디가 문제인지”를 1분 내 좁히는 것</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="-데이터-기반-의사결정">✅ 데이터 기반 의사결정<a href="https://goodsy.github.io/sykim-project/blog/2026/02/19/tech/scouter-system-construction#-%EB%8D%B0%EC%9D%B4%ED%84%B0-%EA%B8%B0%EB%B0%98-%EC%9D%98%EC%82%AC%EA%B2%B0%EC%A0%95" class="hash-link" aria-label="✅ 데이터 기반 의사결정에 대한 직접 링크" title="✅ 데이터 기반 의사결정에 대한 직접 링크" translate="no">​</a></h3>
+<ul>
+<li class="">성능/장애/성공률 지표를 정량화</li>
+<li class="">“느린 것 같다”가 아니라 <strong>P95/P99 지표 기반으로 판단</strong></li>
+<li class="">결제 성공률(비즈니스 지표) 중심 운영</li>
+</ul>
+<hr>
+<h1>관제 범위 (5단계 Layer 기준)</h1>
+<p>장애 흐름에 따라 전체 구간을 정의하되, 개발/운영 파트에서 직접 제어 가능한 영역(L4 App / L5 DB)을 핵심 관제 구간으로 도입한다.</p>
+<table><thead><tr><th>Layer</th><th>구분</th><th>주요 관제 요소</th><th>활용 도구</th><th>비고</th></tr></thead><tbody><tr><td>L1</td><td>User Layer</td><td>결제창 로딩 속도, 이탈률</td><td>-</td><td>사용자 경험</td></tr><tr><td>L2</td><td>Network Layer</td><td>DNS, LB, 트래픽 폭주</td><td>-</td><td>구간 장애</td></tr><tr><td>L3</td><td>Infra Layer</td><td>CPU, Memory, Disk I/O</td><td>Prometheus, Grafana</td><td>리소스 장애</td></tr><tr><td><strong>L4</strong></td><td><strong>App Layer</strong></td><td><strong>결제 로직 에러, 외부 API 지연, Thread/JVM 상태</strong></td><td>Spring Actuator, Scouter</td><td><strong>핵심 관제</strong></td></tr><tr><td><strong>L5</strong></td><td><strong>DB Layer</strong></td><td><strong>Slow Query, Connection Pool, Lock 여부</strong></td><td>Scouter, Prometheus</td><td><strong>핵심 관제</strong></td></tr></tbody></table>
+<hr>
+<h1>관제 항목 (공통 / 서비스별)</h1>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="공통-관제-항목">공통 관제 항목<a href="https://goodsy.github.io/sykim-project/blog/2026/02/19/tech/scouter-system-construction#%EA%B3%B5%ED%86%B5-%EA%B4%80%EC%A0%9C-%ED%95%AD%EB%AA%A9" class="hash-link" aria-label="공통 관제 항목에 대한 직접 링크" title="공통 관제 항목에 대한 직접 링크" translate="no">​</a></h3>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="-트래픽--응답">✅ 트래픽 / 응답<a href="https://goodsy.github.io/sykim-project/blog/2026/02/19/tech/scouter-system-construction#-%ED%8A%B8%EB%9E%98%ED%94%BD--%EC%9D%91%EB%8B%B5" class="hash-link" aria-label="✅ 트래픽 / 응답에 대한 직접 링크" title="✅ 트래픽 / 응답에 대한 직접 링크" translate="no">​</a></h4>
+<ul>
+<li class="">TPS / RPS</li>
+<li class="">응답시간 Latency (P50 / P95 / P99)</li>
+<li class="">HTTP 상태코드 비율 (2xx / 4xx / 5xx)</li>
+<li class="">Timeout 비율</li>
+<li class="">에러율(전체 요청 대비 실패율)</li>
+</ul>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="-서버-리소스">✅ 서버 리소스<a href="https://goodsy.github.io/sykim-project/blog/2026/02/19/tech/scouter-system-construction#-%EC%84%9C%EB%B2%84-%EB%A6%AC%EC%86%8C%EC%8A%A4" class="hash-link" aria-label="✅ 서버 리소스에 대한 직접 링크" title="✅ 서버 리소스에 대한 직접 링크" translate="no">​</a></h4>
+<ul>
+<li class="">CPU 사용률</li>
+<li class="">메모리(Heap / Non-Heap)</li>
+<li class="">GC 횟수 / GC 시간</li>
+<li class="">Disk 사용률 및 I/O</li>
+<li class="">Network In/Out</li>
+</ul>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="-jvm--애플리케이션-상태">✅ JVM / 애플리케이션 상태<a href="https://goodsy.github.io/sykim-project/blog/2026/02/19/tech/scouter-system-construction#-jvm--%EC%95%A0%ED%94%8C%EB%A6%AC%EC%BC%80%EC%9D%B4%EC%85%98-%EC%83%81%ED%83%9C" class="hash-link" aria-label="✅ JVM / 애플리케이션 상태에 대한 직접 링크" title="✅ JVM / 애플리케이션 상태에 대한 직접 링크" translate="no">​</a></h4>
+<ul>
+<li class="">Thread 수 / Runnable / Blocked</li>
+<li class="">Active connection 수 (서버/클라이언트)</li>
+<li class="">요청 큐 적체(대기시간)</li>
+<li class="">로그 ERROR 발생률</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="서비스별-관제-항목">서비스별 관제 항목<a href="https://goodsy.github.io/sykim-project/blog/2026/02/19/tech/scouter-system-construction#%EC%84%9C%EB%B9%84%EC%8A%A4%EB%B3%84-%EA%B4%80%EC%A0%9C-%ED%95%AD%EB%AA%A9" class="hash-link" aria-label="서비스별 관제 항목에 대한 직접 링크" title="서비스별 관제 항목에 대한 직접 링크" translate="no">​</a></h3>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="-승인-서비스-spring-boot--native-netty">✅ 승인 서비스 (Spring Boot + Native Netty)<a href="https://goodsy.github.io/sykim-project/blog/2026/02/19/tech/scouter-system-construction#-%EC%8A%B9%EC%9D%B8-%EC%84%9C%EB%B9%84%EC%8A%A4-spring-boot--native-netty" class="hash-link" aria-label="✅ 승인 서비스 (Spring Boot + Native Netty)에 대한 직접 링크" title="✅ 승인 서비스 (Spring Boot + Native Netty)에 대한 직접 링크" translate="no">​</a></h4>
+<ul>
+<li class="">승인 성공률 / 실패율</li>
+<li class="">외부 원천사 응답시간 및 Timeout</li>
+<li class="">내부 예외율(Validation, Mapping, Business Error)</li>
+<li class="">Thread / CPU / GC</li>
+<li class="">외부 원천사 연동 상태</li>
+</ul>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="-결제창spring-boot">✅ 결제창(Spring Boot)<a href="https://goodsy.github.io/sykim-project/blog/2026/02/19/tech/scouter-system-construction#-%EA%B2%B0%EC%A0%9C%EC%B0%BDspring-boot" class="hash-link" aria-label="✅ 결제창(Spring Boot)에 대한 직접 링크" title="✅ 결제창(Spring Boot)에 대한 직접 링크" translate="no">​</a></h4>
+<ul>
+<li class="">결제 진입 → 승인 요청 전환율</li>
+<li class="">4xx 비율(사용자 입력/검증 실패)</li>
+<li class="">결제 UX 지연(P95)</li>
+<li class="">외부 원천사 응답시간 및 Timeout</li>
+</ul>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="-batch-정산-및-매입--spring-batch">✅ Batch (정산 및 매입 / Spring Batch)<a href="https://goodsy.github.io/sykim-project/blog/2026/02/19/tech/scouter-system-construction#-batch-%EC%A0%95%EC%82%B0-%EB%B0%8F-%EB%A7%A4%EC%9E%85--spring-batch" class="hash-link" aria-label="✅ Batch (정산 및 매입 / Spring Batch)에 대한 직접 링크" title="✅ Batch (정산 및 매입 / Spring Batch)에 대한 직접 링크" translate="no">​</a></h4>
+<ul>
+<li class="">Job / Step 상태</li>
+<li class="">처리 건수(성공/실패/Skip)</li>
+<li class="">누락/중복 여부</li>
+<li class="">DB 부하(락 / 슬로우쿼리)</li>
+</ul>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="-관리자-시스템-운영-및-관리--spring-boot">✅ 관리자 시스템 (운영 및 관리 / Spring Boot)<a href="https://goodsy.github.io/sykim-project/blog/2026/02/19/tech/scouter-system-construction#-%EA%B4%80%EB%A6%AC%EC%9E%90-%EC%8B%9C%EC%8A%A4%ED%85%9C-%EC%9A%B4%EC%98%81-%EB%B0%8F-%EA%B4%80%EB%A6%AC--spring-boot" class="hash-link" aria-label="✅ 관리자 시스템 (운영 및 관리 / Spring Boot)에 대한 직접 링크" title="✅ 관리자 시스템 (운영 및 관리 / Spring Boot)에 대한 직접 링크" translate="no">​</a></h4>
+<ul>
+<li class="">관리자 조회/정정 요청량</li>
+</ul>
+<hr>
+<h1>Scouter &amp; Spring Actuator + Micrometer + Prometheus + Grafana 아키텍처</h1>
+<table><thead><tr><th><strong>기술명</strong></th><th><strong>설명 및 목적</strong></th></tr></thead><tbody><tr><td><strong>Scouter</strong></td><td>국내 LG CNS 오픈소스로 실시간 Java APM(Application Performance Monitoring). 서비스별 부하 및 상세 트랜잭션 추적.</td></tr><tr><td><strong>Spring Actuator</strong></td><td>어플리케이션의 상태 정보(Health, Metrics)를 HTTP 엔드포인트로 노출.</td></tr><tr><td><strong>Micrometer</strong></td><td>다양한 모니터링 시스템 간의 파사드 역할을 하여 지표를 표준화(Prometheus 형식 등).</td></tr><tr><td><strong>Prometheus</strong></td><td>시계열 데이터베이스(TSDB). Actuator가 노출한 지표를 주기적으로 Pull링하여 저장.</td></tr><tr><td><strong>Grafana</strong></td><td>저장된 지표를 시각화. 대시보드 구축 및 알람 규칙 설정.</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="시스템-metric지표-기반-관제-장애-감지">시스템 Metric(지표) 기반 관제 "장애 감지"<a href="https://goodsy.github.io/sykim-project/blog/2026/02/19/tech/scouter-system-construction#%EC%8B%9C%EC%8A%A4%ED%85%9C-metric%EC%A7%80%ED%91%9C-%EA%B8%B0%EB%B0%98-%EA%B4%80%EC%A0%9C-%EC%9E%A5%EC%95%A0-%EA%B0%90%EC%A7%80" class="hash-link" aria-label="시스템 Metric(지표) 기반 관제 &quot;장애 감지&quot;에 대한 직접 링크" title="시스템 Metric(지표) 기반 관제 &quot;장애 감지&quot;에 대한 직접 링크" translate="no">​</a></h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain" style="display:inline-block"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">(각 서비스 Application)</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">┌───────────────────────────────────────────────┐</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">│ Spring Boot / Spring Batch                    │</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">│  - Micrometer (custom + jvm + hikari + http)  │</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">│  - Actuator (/actuator/prometheus, /health)   │</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">└───────────────────────────────────────────────┘</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">          ↑   (Pull)</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">┌──────────────────────────┐</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">│ Prometheus               │  ← scrape: 각 서비스의 actuator/prometheus</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">└──────────────────────────┘</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">          ↑</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">┌──────────────────────────┐</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">│ Grafana                  │  ← Dashboard / Alert (Slack)</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">└──────────────────────────┘</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain" style="display:inline-block"></span><br></span></code></pre></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="spring-actuator--micrometer">Spring Actuator + Micrometer<a href="https://goodsy.github.io/sykim-project/blog/2026/02/19/tech/scouter-system-construction#spring-actuator--micrometer" class="hash-link" aria-label="Spring Actuator + Micrometer에 대한 직접 링크" title="Spring Actuator + Micrometer에 대한 직접 링크" translate="no">​</a></h4>
+<ul>
+<li class="">스프링 부트 애플리케이션의 지표(Metric)를 생성하고 표준화하는 도구</li>
+<li class="">결제 성공 건수, JVM 메모리, 커스텀 비즈니스 지표 추출</li>
+</ul>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="prometheus">Prometheus<a href="https://goodsy.github.io/sykim-project/blog/2026/02/19/tech/scouter-system-construction#prometheus" class="hash-link" aria-label="Prometheus에 대한 직접 링크" title="Prometheus에 대한 직접 링크" translate="no">​</a></h4>
+<ul>
+<li class="">시계열 데이터베이스(TSDB) 기반의 메트릭 수집 서버</li>
+<li class="">분산된 서버들의 지표 데이터를 주기적으로 수집(Pull) 및 저장</li>
+</ul>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="grafana">Grafana<a href="https://goodsy.github.io/sykim-project/blog/2026/02/19/tech/scouter-system-construction#grafana" class="hash-link" aria-label="Grafana에 대한 직접 링크" title="Grafana에 대한 직접 링크" translate="no">​</a></h4>
+<ul>
+<li class="">데이터 시각화 전문 플랫폼</li>
+<li class="">분산된 지표를 통합하여 한눈에 보이는 대시보드 및 멀티 채널 알람 구성</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="실시간-트랜잭션-추적apm-기반-관제-원인-분석">실시간 트랜잭션 추적(APM) 기반 관제 "원인 분석"<a href="https://goodsy.github.io/sykim-project/blog/2026/02/19/tech/scouter-system-construction#%EC%8B%A4%EC%8B%9C%EA%B0%84-%ED%8A%B8%EB%9E%9C%EC%9E%AD%EC%85%98-%EC%B6%94%EC%A0%81apm-%EA%B8%B0%EB%B0%98-%EA%B4%80%EC%A0%9C-%EC%9B%90%EC%9D%B8-%EB%B6%84%EC%84%9D" class="hash-link" aria-label="실시간 트랜잭션 추적(APM) 기반 관제 &quot;원인 분석&quot;에 대한 직접 링크" title="실시간 트랜잭션 추적(APM) 기반 관제 &quot;원인 분석&quot;에 대한 직접 링크" translate="no">​</a></h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain" style="display:inline-block"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">각 서비스 JVM Scouter agent → Scouter Server ← Scouter Paper or Client</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain" style="display:inline-block"></span><br></span></code></pre></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="scouter">Scouter<a href="https://goodsy.github.io/sykim-project/blog/2026/02/19/tech/scouter-system-construction#scouter" class="hash-link" aria-label="Scouter에 대한 직접 링크" title="Scouter에 대한 직접 링크" translate="no">​</a></h4>
+<ul>
+<li class="">JVM 및 Tomcat 트랜잭션(X-Log) 기반 실시간 프로파일링</li>
+<li class="">장애 시, "어디서 느린지" 빠르기 확인 가능</li>
+</ul>]]></content>
+        <category label="Tech" term="Tech"/>
+        <category label="monitoring" term="monitoring"/>
+    </entry>
     <entry>
         <title type="html"><![CDATA[결제 시스템 관제 시스템 도입 배경과 아키텍처]]></title>
         <id>https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture</id>
@@ -99,30 +220,29 @@
 <li class="">관리자 조회/정정 요청량</li>
 </ul>
 <hr>
-<h1>Scouter &amp; Spring Actuator + Micrometer + Prometheus + Grafana 아키텍처</h1>
-<table><thead><tr><th><strong>기술명</strong></th><th><strong>설명 및 목적</strong></th></tr></thead><tbody><tr><td><strong>Scouter</strong></td><td>국내 LG CNS 오픈소스로 실시간 Java APM(Application Performance Monitoring). 서비스별 부하 및 상세 트랜잭션 추적.</td></tr><tr><td><strong>Spring Actuator</strong></td><td>어플리케이션의 상태 정보(Health, Metrics)를 HTTP 엔드포인트로 노출.</td></tr><tr><td><strong>Micrometer</strong></td><td>다양한 모니터링 시스템 간의 파사드 역할을 하여 지표를 표준화(Prometheus 형식 등).</td></tr><tr><td><strong>Prometheus</strong></td><td>시계열 데이터베이스(TSDB). Actuator가 노출한 지표를 주기적으로 Pull링하여 저장.</td></tr><tr><td><strong>Grafana</strong></td><td>저장된 지표를 시각화. 대시보드 구축 및 알람 규칙 설정.</td></tr></tbody></table>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="시스템-metric지표-기반-관제-장애-감지">시스템 Metric(지표) 기반 관제 "장애 감지"<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#%EC%8B%9C%EC%8A%A4%ED%85%9C-metric%EC%A7%80%ED%91%9C-%EA%B8%B0%EB%B0%98-%EA%B4%80%EC%A0%9C-%EC%9E%A5%EC%95%A0-%EA%B0%90%EC%A7%80" class="hash-link" aria-label="시스템 Metric(지표) 기반 관제 &quot;장애 감지&quot;에 대한 직접 링크" title="시스템 Metric(지표) 기반 관제 &quot;장애 감지&quot;에 대한 직접 링크" translate="no">​</a></h3>
+<h1>관제 기술 도입 및 역할</h1>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="시스템-metric지표-기반-관제-장애-감지">시스템 Metric(지표) 기반 관제 "장애 감지"<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#%EC%8B%9C%EC%8A%A4%ED%85%9C-metric%EC%A7%80%ED%91%9C-%EA%B8%B0%EB%B0%98-%EA%B4%80%EC%A0%9C-%EC%9E%A5%EC%95%A0-%EA%B0%90%EC%A7%80" class="hash-link" aria-label="시스템 Metric(지표) 기반 관제 &quot;장애 감지&quot;에 대한 직접 링크" title="시스템 Metric(지표) 기반 관제 &quot;장애 감지&quot;에 대한 직접 링크" translate="no">​</a></h2>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain" style="display:inline-block"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">(각 서비스 Application)</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">┌───────────────────────────────────────────────┐</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">│ Spring Boot / Spring Batch                    │</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">│  - Micrometer (custom + jvm + hikari + http)  │</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">│  - Actuator (/actuator/prometheus, /health)   │</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">└───────────────────────────────────────────────┘</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">          ↑   (Pull)</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">┌──────────────────────────┐</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">│ Prometheus               │  ← scrape: 각 서비스의 actuator/prometheus</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">└──────────────────────────┘</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">          ↑</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">┌──────────────────────────┐</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">│ Grafana                  │  ← Dashboard / Alert (Slack)</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">└──────────────────────────┘</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain" style="display:inline-block"></span><br></span></code></pre></div></div>
-<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="spring-actuator--micrometer">Spring Actuator + Micrometer<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#spring-actuator--micrometer" class="hash-link" aria-label="Spring Actuator + Micrometer에 대한 직접 링크" title="Spring Actuator + Micrometer에 대한 직접 링크" translate="no">​</a></h4>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="spring-actuator--micrometer">Spring Actuator + Micrometer<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#spring-actuator--micrometer" class="hash-link" aria-label="Spring Actuator + Micrometer에 대한 직접 링크" title="Spring Actuator + Micrometer에 대한 직접 링크" translate="no">​</a></h3>
 <ul>
-<li class="">스프링 부트 애플리케이션의 지표(Metric)를 생성하고 표준화하는 도구</li>
-<li class="">결제 성공 건수, JVM 메모리, 커스텀 비즈니스 지표 추출</li>
+<li class="">스프링 부트 애플리케이션의 지표(Metric)를 생성하고 표준화하는 도구(HTTP 엔드포인트로 노출)</li>
+<li class="">다양한 모니터링 시스템 간의 파사드 역할을 하여 결제 성공 건수, JVM 메모리, 커스텀 비즈니스 지표를 표준화</li>
 </ul>
-<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="prometheus">Prometheus<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#prometheus" class="hash-link" aria-label="Prometheus에 대한 직접 링크" title="Prometheus에 대한 직접 링크" translate="no">​</a></h4>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="prometheus">Prometheus<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#prometheus" class="hash-link" aria-label="Prometheus에 대한 직접 링크" title="Prometheus에 대한 직접 링크" translate="no">​</a></h3>
 <ul>
 <li class="">시계열 데이터베이스(TSDB) 기반의 메트릭 수집 서버</li>
 <li class="">분산된 서버들의 지표 데이터를 주기적으로 수집(Pull) 및 저장</li>
 </ul>
-<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="grafana">Grafana<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#grafana" class="hash-link" aria-label="Grafana에 대한 직접 링크" title="Grafana에 대한 직접 링크" translate="no">​</a></h4>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="grafana">Grafana<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#grafana" class="hash-link" aria-label="Grafana에 대한 직접 링크" title="Grafana에 대한 직접 링크" translate="no">​</a></h3>
 <ul>
 <li class="">데이터 시각화 전문 플랫폼</li>
 <li class="">분산된 지표를 통합하여 한눈에 보이는 대시보드 및 멀티 채널 알람 구성</li>
 </ul>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="실시간-트랜잭션-추적apm-기반-관제-원인-분석">실시간 트랜잭션 추적(APM) 기반 관제 "원인 분석"<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#%EC%8B%A4%EC%8B%9C%EA%B0%84-%ED%8A%B8%EB%9E%9C%EC%9E%AD%EC%85%98-%EC%B6%94%EC%A0%81apm-%EA%B8%B0%EB%B0%98-%EA%B4%80%EC%A0%9C-%EC%9B%90%EC%9D%B8-%EB%B6%84%EC%84%9D" class="hash-link" aria-label="실시간 트랜잭션 추적(APM) 기반 관제 &quot;원인 분석&quot;에 대한 직접 링크" title="실시간 트랜잭션 추적(APM) 기반 관제 &quot;원인 분석&quot;에 대한 직접 링크" translate="no">​</a></h3>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="실시간-트랜잭션-추적apm-기반-관제-원인-분석">실시간 트랜잭션 추적(APM) 기반 관제 "원인 분석"<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#%EC%8B%A4%EC%8B%9C%EA%B0%84-%ED%8A%B8%EB%9E%9C%EC%9E%AD%EC%85%98-%EC%B6%94%EC%A0%81apm-%EA%B8%B0%EB%B0%98-%EA%B4%80%EC%A0%9C-%EC%9B%90%EC%9D%B8-%EB%B6%84%EC%84%9D" class="hash-link" aria-label="실시간 트랜잭션 추적(APM) 기반 관제 &quot;원인 분석&quot;에 대한 직접 링크" title="실시간 트랜잭션 추적(APM) 기반 관제 &quot;원인 분석&quot;에 대한 직접 링크" translate="no">​</a></h2>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain" style="display:inline-block"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">각 서비스 JVM Scouter agent → Scouter Server ← Scouter Paper or Client</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain" style="display:inline-block"></span><br></span></code></pre></div></div>
-<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="scouter">Scouter<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#scouter" class="hash-link" aria-label="Scouter에 대한 직접 링크" title="Scouter에 대한 직접 링크" translate="no">​</a></h4>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="scouter">Scouter<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#scouter" class="hash-link" aria-label="Scouter에 대한 직접 링크" title="Scouter에 대한 직접 링크" translate="no">​</a></h3>
 <ul>
-<li class="">JVM 및 Tomcat 트랜잭션(X-Log) 기반 실시간 프로파일링</li>
+<li class="">국내 LG CNS 오픈소스로 JVM 및 Tomcat 트랜잭션(X-Log) 기반 실시간 프로파일링</li>
 <li class="">장애 시, "어디서 느린지" 빠르기 확인 가능</li>
 </ul>]]></content>
         <category label="Tech" term="Tech"/>
