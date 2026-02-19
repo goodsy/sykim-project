@@ -54,7 +54,7 @@ tags: [tech, monitoring]
 
 # 관제 항목 (공통 / 서비스별)
 
-## 공통 관제 항목
+### 공통 관제 항목
 
 #### ✅ 트래픽 / 응답
 - TPS / RPS
@@ -76,53 +76,86 @@ tags: [tech, monitoring]
 - 요청 큐 적체(대기시간)
 - 로그 ERROR 발생률
 
-## 서비스별 관제 항목
+### 서비스별 관제 항목
 
-#### ✅ 승인 서비스 (BLD / Spring Boot + Native Netty)
+#### ✅ 승인 서비스 (Spring Boot + Native Netty)
 - 승인 성공률 / 실패율
 - 외부 원천사 응답시간 및 Timeout
 - 내부 예외율(Validation, Mapping, Business Error)
 - Thread / CPU / GC
 - 외부 원천사 연동 상태
 
-#### ✅ 결제창(Front / Spring Boot)
+#### ✅ 결제창(Spring Boot)
 - 결제 진입 → 승인 요청 전환율
 - 4xx 비율(사용자 입력/검증 실패)
 - 결제 UX 지연(P95)
 - 외부 원천사 응답시간 및 Timeout
 
-#### ✅ Batch (정산/매입 / Spring Batch)
+#### ✅ Batch (정산 및 매입 / Spring Batch)
 - Job / Step 상태
 - 처리 건수(성공/실패/Skip)
 - 누락/중복 여부
 - DB 부하(락 / 슬로우쿼리)
 
-#### ✅ 관리자 시스템 (운영/관리)
+#### ✅ 관리자 시스템 (운영 및 관리 / Spring Boot)
 - 관리자 조회/정정 요청량
 
 ---
 
 # Scouter & Spring Actuator + Micrometer + Prometheus + Grafana 아키텍처
 
-| **기술명** | **설명 및 목적** |
-| --- | --- |
-| **Scouter** | 실시간 APM(Application Performance Monitoring). 서비스별 부하 및 상세 트랜잭션 추적. |
-| **Spring Actuator** | 어플리케이션의 상태 정보(Health, Metrics)를 HTTP 엔드포인트로 노출. |
-| **Micrometer** | 다양한 모니터링 시스템 간의 파사드 역할을 하여 지표를 표준화(Prometheus 형식 등). |
-| **Prometheus** | 시계열 데이터베이스(TSDB). Actuator가 노출한 지표를 주기적으로 Pull링하여 저장. |
-| **Grafana** | 저장된 지표를 시각화. 대시보드 구축 및 알람 규칙 설정. |
+| **기술명** | **설명 및 목적**                                                                             |
+| --- |-----------------------------------------------------------------------------------------|
+| **Scouter** | 국내 LG CNS 오픈소스로 실시간 Java APM(Application Performance Monitoring). 서비스별 부하 및 상세 트랜잭션 추적. |
+| **Spring Actuator** | 어플리케이션의 상태 정보(Health, Metrics)를 HTTP 엔드포인트로 노출.                                         |
+| **Micrometer** | 다양한 모니터링 시스템 간의 파사드 역할을 하여 지표를 표준화(Prometheus 형식 등).                                    |
+| **Prometheus** | 시계열 데이터베이스(TSDB). Actuator가 노출한 지표를 주기적으로 Pull링하여 저장.                                   |
+| **Grafana** | 저장된 지표를 시각화. 대시보드 구축 및 알람 규칙 설정.                                                        |
 
-## 시스템 아키텍처 
+### 시스템 Metric(지표) 기반 관제 "장애 감지"
 
-1. **Application**에서 Micrometer/Actuator를 통해 지표 생성.
-2. **Actuator/Micrometer → Prometheus**가 주기적으로 데이터를 수집(Pull).
-3. **Scouter Agent**가 JVM 및 트랜잭션 정보를 Scouter Server로 전송.
-4. **Grafana**가 Prometheus 데이터를 쿼리하여 대시보드 출력
-5. (선택) **Alertmanager/Telegram/Slack** : 알림 채널
+```text
+
+(각 서비스 Application)
+┌───────────────────────────────────────────────┐
+│ Spring Boot / Spring Batch                    │
+│  - Micrometer (custom + jvm + hikari + http)  │
+│  - Actuator (/actuator/prometheus, /health)   │
+└───────────────────────────────────────────────┘
+          ↑   (Pull)
+┌──────────────────────────┐
+│ Prometheus               │  ← scrape: 각 서비스의 actuator/prometheus
+└──────────────────────────┘
+          ↑
+┌──────────────────────────┐
+│ Grafana                  │  ← Dashboard / Alert (Slack)
+└──────────────────────────┘
+
+```
+
+#### Spring Actuator + Micrometer
+- 스프링 부트 애플리케이션의 지표(Metric)를 생성하고 표준화하는 도구
+- 결제 성공 건수, JVM 메모리, 커스텀 비즈니스 지표 추출
+
+#### Prometheus
+ - 시계열 데이터베이스(TSDB) 기반의 메트릭 수집 서버
+ - 분산된 서버들의 지표 데이터를 주기적으로 수집(Pull) 및 저장
+
+#### Grafana
+  - 데이터 시각화 전문 플랫폼
+  - 분산된 지표를 통합하여 한눈에 보이는 대시보드 및 멀티 채널 알람 구성
 
 
-## 운영 시, 고려사항
+### 실시간 트랜잭션 추적(APM) 기반 관제 "원인 분석"
+```text
 
-- 알림은 **“비즈니스 성공률”과 “외부 연동 지연/실패”** 중심으로 시작
-- TPS가 낮은 초기에는 **P95/P99 지표 + Error/Timeout 비율**만으로도 효과가 큼
-- 배치는 **Job/Step 상태 + 처리건수 + DB 부하**를 반드시 분리해서 봄
+각 서비스 JVM Scouter agent → Scouter Server ← Scouter Paper or Client
+
+```
+#### Scouter
+- JVM 및 Tomcat 트랜잭션(X-Log) 기반 실시간 프로파일링
+- 장애 시, "어디서 느린지" 빠르기 확인 가능
+
+
+
+
