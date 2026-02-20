@@ -7,14 +7,11 @@ tags: [tech, monitoring]
 # Scouter 선택 이유
 Scouter는 Java 기반 국내 오픈소스 APM이며 선택한 이유는 아래와 같습니다.
 
-| 항목            | 이유                |
-| ------------- |-------------------|
-| Java Agent 방식 | 코드 수정 없이 빠른 적용 가능 |
-| XLog 트랜잭션 추적  | 요청 단위 상세 분석       |
-| SQL 바인딩 추적 가능 | 정산 검증 필수          |
-| Batch 지원      | 배치 환경 관제 가능       |
-| 오픈소스          | 비용 부담 없음          |
-
+- Java Agent 방식 : 코드 수정 없이 빠른 적용 가능
+- XLog 트랜잭션 추적 : 요청 단위 상세 분석
+- SQL 바인딩 추적 가능 
+- Batch 지원 : 배치 환경 관제 가능
+- 오픈소스 : 비용 부담 없음
 
 # Scouter 동작 원리
 
@@ -34,8 +31,6 @@ Scouter Agent
 Scouter Server
     ↓
 Scouter Client or Paper
-
-
 ```
 
 # Scouter 구성도
