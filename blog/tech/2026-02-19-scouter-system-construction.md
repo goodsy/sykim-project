@@ -5,7 +5,7 @@ tags: [tech, monitoring]
 ---
 
 # Scouter 선택 이유
-Scouter는 Java 기반 국내 오픈소스 APM이며, 선택한 이유는 아래와 같다.
+Scouter는 Java 기반 국내 오픈소스 APM이며 선택한 이유는 아래와 같습니다.
 
 | 항목            | 이유                |
 | ------------- |-------------------|
@@ -18,8 +18,8 @@ Scouter는 Java 기반 국내 오픈소스 APM이며, 선택한 이유는 아래
 
 # Scouter 동작 원리
 
-관제 서버에 Collector(Server)를 띄우고 각각의 Agent(Application)들이 정보를 수집하여 Collector로 보내는 방식이다.
-그리고 Collector의 정보를 Client 또는 Paper에서 관제 정보를 조회 및 실행하여 확인이 가능하다.
+관제 서버에 Collector(Server)를 띄우고 각각의 Agent(Application)들이 정보를 수집하여 Collector로 보내는 방식입니다.
+그리고 Collector의 정보를 Client 또는 Paper에서 관제 정보를 조회 및 실행하여 확인이 가능합니다.
 
 ![img_2.png](../file/scouter_system.png)
 ```text
@@ -41,8 +41,8 @@ Scouter Client or Paper
 # Scouter 구성도
 
 Scouter Server(Collector)를 설치하고, 각 서비스의 Agent를 JVM Option으로 적용하면
-운영자 PC에서는 Scouter Client 또는 Scouter Paper(Web)에서 Scouter에서 제공하는 웹 어플리케이션(Tomcat, JBoss 등)과 JVM 어플리케이션 지표를 확인 할 수 있다.
-Scouter Client는 RCP 기반 클라이언트 프로그램으로 PC(윈도우 환경)에 설치, Scouter Paper 이용 시에는 서버에 별도로 설치하여 사용한다.
+운영자 PC에서는 Scouter Client 또는 Scouter Paper(Web)에서 Scouter에서 제공하는 웹 어플리케이션(Tomcat, JBoss 등)과 JVM 어플리케이션 지표를 확인 할 수 있습니다..
+Scouter Client는 RCP 기반 클라이언트 프로그램으로 PC(윈도우 환경)에 설치, Scouter Paper 이용 시에는 서버에 별도로 설치하여 사용합니다.
 
 ### 적용 가능 시스템 환경
 - Java 에이전트: 웹 애플리케이션(Tomcat, JBoss, Resin 등에서 실행), 독립형 Java 애플리케이션

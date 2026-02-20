@@ -6,15 +6,15 @@ tags: [notes, kotlin, exception, functional, backend]
 
 # Kotlin `runCatching`
 
-`runCatching`은 Kotlin에서 **try-catch를 함수형 스타일로 표현**할 수 있게 해주는 표준 함수다.  
-예외가 발생할 수 있는 코드를 `Result<T>`로 감싸 **성공과 실패를 명확하게 분리**한다.
+`runCatching`은 Kotlin에서 **try-catch를 함수형 스타일로 표현**할 수 있게 해주는 표준 함수입니다.
+예외가 발생할 수 있는 코드를 `Result<T>`로 감싸 **성공과 실패를 명확하게 분리**합니다.
 
 실무에서는 특히  
 - 외부 API 연동  
 - Spring Batch 처리  
 - 실패 허용이 필요한 로직  
 
-에서 가독성과 안정성을 높이기 위해 자주 사용된다.
+에서 가독성과 안정성을 높이기 위해 자주 사용됩니다.
 
 ---
 
@@ -61,7 +61,7 @@ runCatching {
 
 * `onSuccess` : 성공 시 실행
 * `onFailure` : 예외 발생 시 실행
-* 반환값이 필요 없고 **사이드 이펙트 처리**에 적합
+* 반환값이 필요 없고 **사이드 이펙트 처리**에 적합합니다.
 
 ---
 
@@ -177,15 +177,15 @@ runCatching {
 
 ---
 
-## 언제 사용하면 좋을까?
+## 언제 사용하면 좋을까요?
 
 * 외부 연동 (API, MQ, SFTP)
 * Spring Batch Processor / Writer
 * 실패 허용 & 보완 로직이 있는 경우
 
-피해야 할 경우:
+피해야 할 경우는
 
-* 핵심 도메인 로직
+* 핵심 도메인 로직과
 * 반드시 성공해야 하는 처리
 
 ---
