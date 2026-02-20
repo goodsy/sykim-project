@@ -21,7 +21,7 @@ Scouter는 Java 기반 국내 오픈소스 APM이며 선택한 이유는 아래�
 관제 서버에 Collector(Server)를 띄우고 각각의 Agent(Application)들이 정보를 수집하여 Collector로 보내는 방식입니다.
 그리고 Collector의 정보를 Client 또는 Paper에서 관제 정보를 조회 및 실행하여 확인이 가능합니다.
 
-![img_2.png](../file/scouter_system.png)
+
 ```text
 [Spring Boot WAS]  - Web
 [Netty 서버]        - TCP 통신
