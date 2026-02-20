@@ -106,6 +106,19 @@ tags: [tech, monitoring]
 
 ## 시스템 Metric(지표) 기반 관제 "장애 감지"
 
+### Spring Actuator + Micrometer
+- 스프링 부트 애플리케이션의 지표(Metric)를 생성하고 표준화하는 도구(HTTP 엔드포인트로 노출)
+- 다양한 모니터링 시스템 간의 파사드 역할을 하여 결제 성공 건수, JVM 메모리, 커스텀 비즈니스 지표를 표준화
+
+### Prometheus
+ - 시계열 데이터베이스(TSDB) 기반의 메트릭 수집 서버
+ - 분산된 서버들의 지표 데이터를 주기적으로 수집(Pull) 및 저장
+
+### Grafana
+  - 데이터 시각화 전문 플랫폼
+  - 분산된 지표를 통합하여 한눈에 보이는 대시보드 및 멀티 채널 알람 구성
+
+
 ```text
 
 (각 서비스 Application)
@@ -125,29 +138,15 @@ tags: [tech, monitoring]
 
 ```
 
-### Spring Actuator + Micrometer
-- 스프링 부트 애플리케이션의 지표(Metric)를 생성하고 표준화하는 도구(HTTP 엔드포인트로 노출)
-- 다양한 모니터링 시스템 간의 파사드 역할을 하여 결제 성공 건수, JVM 메모리, 커스텀 비즈니스 지표를 표준화
-
-### Prometheus
- - 시계열 데이터베이스(TSDB) 기반의 메트릭 수집 서버
- - 분산된 서버들의 지표 데이터를 주기적으로 수집(Pull) 및 저장
-
-### Grafana
-  - 데이터 시각화 전문 플랫폼
-  - 분산된 지표를 통합하여 한눈에 보이는 대시보드 및 멀티 채널 알람 구성
-
-
 ## 실시간 트랜잭션 추적(APM) 기반 관제 "원인 분석"
-```text
 
-각 서비스 JVM Scouter agent → Scouter Server ← Scouter Paper or Client
-
-```
 ### Scouter
 - 국내 LG CNS 오픈소스로 JVM 및 Tomcat 트랜잭션(X-Log) 기반 실시간 프로파일링
 - 장애 시, "어디서 느린지" 빠르기 확인 가능
 
+```text
+각 서비스 JVM Scouter agent → Scouter Server ← Scouter Paper or Client
+```
 
 
 

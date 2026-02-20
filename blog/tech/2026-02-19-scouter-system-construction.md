@@ -1,5 +1,5 @@
 ---
-title: Scouter 기반 관제 시스템 구축기
+title: Scouter 기반 관제 시스템 구축하기
 description: Scouter 도입하기
 tags: [tech, monitoring]
 ---

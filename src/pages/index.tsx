@@ -11,7 +11,7 @@ export default function Home() {
                 </h1>
 
                 <p style={{ color: "var(--ifm-color-emphasis-700)", lineHeight: 1.7, marginBottom: "1.8rem" }}>
-                    백엔드 개발 업무를 하며 정리한 기술과 작업 기록입니다.<br/>
+                    백엔드 개발 업무를 하며 정리한 기술과 작업 기록입니다.
                     실무에서 마주한 문제, 선택의 이유, 구현 과정을 중심으로 정리합니다.<br/>
                 </p>
                 <section style={{ marginTop: "2.5rem" }}>
