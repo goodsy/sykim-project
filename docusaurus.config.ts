@@ -44,6 +44,7 @@ const config: Config = {
                     blogDescription: "Recent posts",
                     showReadingTime: true,
                     postsPerPage: 10,
+                    exclude : ['**/private/**']
                 },
 
                 theme: {

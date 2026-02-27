@@ -1,11 +1,11 @@
 ---
-title: 결제 시스템 관제 도입기 - Scouter 기반 APM 구축과 서비스 관제
+title: 결제 시스템 관제 도입기 - Scouter 구축
 description: PG 시스템에 Scouter APM을 도입하여 인프라 관제에서 서비스 관제로 확장한 전체 구축 과정(Docker)  정리한 기술 가이드
 tags: [APM, monitoring, Scouter,Monitoring]
 ---
 
 
-# 결제 서비스 관제 도입기 
+# 결제 서비스 관제 도입기 - Scouter 기반 APM 구축과 서비스 관제
 
 **PG 시스템에 Scouter APM을 도입하며 인프라 관제에서 서비스 관제로 전환한 전체 구축 과정**을 정리한 블로그입니다.
 
@@ -54,7 +54,7 @@ Scouter 시스템 구성은 아래와 같습니다.
 
 > 서비스 서버에 Agent를 붙이고 중앙 Collector 서버가 이를 수집합니다.
 
-[](/gw/contentsImgController/download/gcmsAmaranth32847/editorImg/78b4c3c2-e91f-4d03-958d-b9b0fe40aeef_png)
+![scouter_system.png](../file/scouter_system.png)
 
 Scouter 관련 상세 내용은 아래 공식 홈페이지에서 확인하실 수 있습니다.
 
@@ -105,7 +105,7 @@ Scotuer는 단일 중앙 Collector가 아닌 **서비스(도메인) 단위로 �
 ### 디렉토리 구성
 
 ```bash
-sudo mkdir -p /data/scouter/f{logs,data,conf}
+sudo mkdir -p /data/scouter/{logs,data,conf}
 cd /data/scouter/
 ```
 
@@ -148,7 +148,7 @@ mgr_purge_xlog_keep_days=5     # XLog 데이터 보관 주기
 mgr_purge_counter_keep_days=15 # CPU, 메모리, TPS, 응답시간
 ```
 
-*※ 보관 정책은 서비스 특성에 맞게 조정합니다.*
+*※보관 정책은 서비스 특성에 맞게 조정합니다.*
 
 ### 실행
 
@@ -244,7 +244,7 @@ wget https://github.com/scouter-project/scouter/releases/download/v2.20.0/scoute
 tar -xvf scouter-all-2.21.1.tar.gz
 ```
 
-### agent conf 설정 : scouter-{서비스명}.conf
+### agent conf 설정 : scouter-\{서비스명\} .conf
 
 ```properties
 obj_name=prod-{서비스명}
