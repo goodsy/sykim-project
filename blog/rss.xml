@@ -4,33 +4,194 @@
         <title>goodsy's 개발 기록 Blog</title>
         <link>https://goodsy.github.io/sykim-project/blog</link>
         <description>goodsy's 개발 기록 Blog</description>
-        <lastBuildDate>Thu, 19 Feb 2026 00:00:00 GMT</lastBuildDate>
+        <lastBuildDate>Fri, 27 Feb 2026 00:00:00 GMT</lastBuildDate>
         <docs>https://validator.w3.org/feed/docs/rss2.html</docs>
         <generator>https://github.com/jpmonette/feed</generator>
         <language>ko</language>
         <item>
-            <title><![CDATA[Scouter 기반 관제 시스템 구축기]]></title>
-            <link>https://goodsy.github.io/sykim-project/blog/2026/02/19/tech/scouter-system-construction</link>
-            <guid>https://goodsy.github.io/sykim-project/blog/2026/02/19/tech/scouter-system-construction</guid>
+            <title><![CDATA[결제 시스템 관제 도입기 - Scouter 기반 APM 구축과 서비스 관제]]></title>
+            <link>https://goodsy.github.io/sykim-project/blog/2026/02/27/tech/monitoring-scouter</link>
+            <guid>https://goodsy.github.io/sykim-project/blog/2026/02/27/tech/monitoring-scouter</guid>
+            <pubDate>Fri, 27 Feb 2026 00:00:00 GMT</pubDate>
+            <description><![CDATA[PG 시스템에 Scouter APM을 도입하여 인프라 관제에서 서비스 관제로 확장한 전체 구축 과정(Docker)  정리한 기술 가이드]]></description>
+            <content:encoded><![CDATA[<p><strong>PG 시스템에 Scouter APM을 도입하며 인프라 관제에서 서비스 관제로 전환한 전체 구축 과정</strong>을 정리한 블로그입니다.</p>
+<p>단순 도입기가 아니라, 실제 운영 환경에 적용한 <strong>Docker 구성, Collector 설정, Agent 적용, SQL XLog 설정, Netty Hook 구성까지 전체 내용을 포함한 Guide</strong>입니다.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="서버-관제를-넘어-서비스-관제로">서버 관제를 넘어, 서비스 관제로<a href="https://goodsy.github.io/sykim-project/blog/2026/02/27/tech/monitoring-scouter#%EC%84%9C%EB%B2%84-%EA%B4%80%EC%A0%9C%EB%A5%BC-%EB%84%98%EC%96%B4-%EC%84%9C%EB%B9%84%EC%8A%A4-%EA%B4%80%EC%A0%9C%EB%A1%9C" class="hash-link" aria-label="서버 관제를 넘어, 서비스 관제로에 대한 직접 링크" title="서버 관제를 넘어, 서비스 관제로에 대한 직접 링크" translate="no">​</a></h2>
+<p>지금까지 PG 시스템은 CPU, 메모리, 디스크 같은 인프라 지표를 중심으로 모니터링 해왔습니다.</p>
+<p>하지만 실제 장애는 “서버가 죽는 문제”보다 “서비스가 정상적으로 동작하지 않는 문제”에서 더 자주 발생합니다.</p>
+<p>예를 들어,</p>
+<ul>
+<li class="">결제 성공률이 갑자기 2% 하락한 경우</li>
+<li class="">외부 연동 응답 시간이 300ms → 2초로 증가한 경우</li>
+<li class="">특정 외부 기관 연동에서만 타임아웃이 발생한 경우</li>
+<li class="">실패 원인이 내부 문제인지 외부 기관 문제인지 구분이 필요한 경우</li>
+</ul>
+<p>이때도 서버는 정상일 수 있지만 고객은 이미 실패를 경험하고 있습니다.</p>
+<p>서비스 관제는 단순 리소스를 보는 것이 아니라, <strong>비즈니스 트랜잭션의 흐름과 건강 상태를 보는 일</strong>이라고 생각합니다.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="왜-scouter를-선택했는가">왜 Scouter를 선택했는가<a href="https://goodsy.github.io/sykim-project/blog/2026/02/27/tech/monitoring-scouter#%EC%99%9C-scouter%EB%A5%BC-%EC%84%A0%ED%83%9D%ED%96%88%EB%8A%94%EA%B0%80" class="hash-link" aria-label="왜 Scouter를 선택했는가에 대한 직접 링크" title="왜 Scouter를 선택했는가에 대한 직접 링크" translate="no">​</a></h2>
+<p>관제 도구를 선택할 때 세 가지를 기준으로 보았습니다.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-트랜잭션-단위로-볼-수-있는가">1. 트랜잭션 단위로 볼 수 있는가<a href="https://goodsy.github.io/sykim-project/blog/2026/02/27/tech/monitoring-scouter#1-%ED%8A%B8%EB%9E%9C%EC%9E%AD%EC%85%98-%EB%8B%A8%EC%9C%84%EB%A1%9C-%EB%B3%BC-%EC%88%98-%EC%9E%88%EB%8A%94%EA%B0%80" class="hash-link" aria-label="1. 트랜잭션 단위로 볼 수 있는가에 대한 직접 링크" title="1. 트랜잭션 단위로 볼 수 있는가에 대한 직접 링크" translate="no">​</a></h3>
+<p>평균 응답시간이 아니라, 어떤 요청이 어디에서 느려졌는지를 보고 싶었습니다.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-애플리케이션-내부까지-확인-가능한가">2. 애플리케이션 내부까지 확인 가능한가<a href="https://goodsy.github.io/sykim-project/blog/2026/02/27/tech/monitoring-scouter#2-%EC%95%A0%ED%94%8C%EB%A6%AC%EC%BC%80%EC%9D%B4%EC%85%98-%EB%82%B4%EB%B6%80%EA%B9%8C%EC%A7%80-%ED%99%95%EC%9D%B8-%EA%B0%80%EB%8A%A5%ED%95%9C%EA%B0%80" class="hash-link" aria-label="2. 애플리케이션 내부까지 확인 가능한가에 대한 직접 링크" title="2. 애플리케이션 내부까지 확인 가능한가에 대한 직접 링크" translate="no">​</a></h3>
+<p>JVM 상태, SQL 실행 시간, 메서드 호출 흐름 등 실제 서비스 내부 동작을 확인할 수 있어야 했습니다.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-적용이-복잡하지-않은가">3. 적용이 복잡하지 않은가<a href="https://goodsy.github.io/sykim-project/blog/2026/02/27/tech/monitoring-scouter#3-%EC%A0%81%EC%9A%A9%EC%9D%B4-%EB%B3%B5%EC%9E%A1%ED%95%98%EC%A7%80-%EC%95%8A%EC%9D%80%EA%B0%80" class="hash-link" aria-label="3. 적용이 복잡하지 않은가에 대한 직접 링크" title="3. 적용이 복잡하지 않은가에 대한 직접 링크" translate="no">​</a></h3>
+<p>전면 코드 수정 없이 Agent 방식으로 붙일 수 있어야 했습니다.</p>
+<p>Scouter는 <code>javaagent</code> 방식으로 쉽게 적용 가능했고, XLog 기반으로 트랜잭션 흐름을 추적할 수 있어 현재 구조에 비교적 부담 없이 적용할 수 있었습니다.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="scouter-구성과-서비스-관제-설계-방향">Scouter 구성과 서비스 관제 설계 방향<a href="https://goodsy.github.io/sykim-project/blog/2026/02/27/tech/monitoring-scouter#scouter-%EA%B5%AC%EC%84%B1%EA%B3%BC-%EC%84%9C%EB%B9%84%EC%8A%A4-%EA%B4%80%EC%A0%9C-%EC%84%A4%EA%B3%84-%EB%B0%A9%ED%96%A5" class="hash-link" aria-label="Scouter 구성과 서비스 관제 설계 방향에 대한 직접 링크" title="Scouter 구성과 서비스 관제 설계 방향에 대한 직접 링크" translate="no">​</a></h2>
+<p>Scouter 시스템 구성은 아래와 같습니다.</p>
+<blockquote>
+<p>서비스 서버에 Agent를 붙이고 중앙 Collector 서버가 이를 수집합니다.</p>
+</blockquote>
+<p><img decoding="async" loading="lazy" alt="scouter_system.png" src="https://goodsy.github.io/sykim-project/assets/images/scouter_system-d1345061acb60890f3c79b1b3c505150.png" width="711" height="411" class="img_ev3q"></p>
+<p>Scouter 관련 상세 내용은 아래 공식 홈페이지에서 확인하실 수 있습니다.</p>
+<p><strong>🔗 Scouter 공식 문서</strong></p>
+<p><a href="https://github.com/scouter-project/scouter/tree/master/scouter.document/main" target="_blank" rel="noopener noreferrer" class="">https://github.com/scouter-project/scouter/tree/master/scouter.document/main</a></p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="이제-실제로-적용해보겠습니다">이제 실제로 적용해보겠습니다<a href="https://goodsy.github.io/sykim-project/blog/2026/02/27/tech/monitoring-scouter#%EC%9D%B4%EC%A0%9C-%EC%8B%A4%EC%A0%9C%EB%A1%9C-%EC%A0%81%EC%9A%A9%ED%95%B4%EB%B3%B4%EA%B2%A0%EC%8A%B5%EB%8B%88%EB%8B%A4" class="hash-link" aria-label="이제 실제로 적용해보겠습니다에 대한 직접 링크" title="이제 실제로 적용해보겠습니다에 대한 직접 링크" translate="no">​</a></h2>
+<p>Scotuer는 단일 중앙 Collector가 아닌 <strong>서비스(도메인) 단위로 독립 Collector를 운영</strong>하는 방향이 더 적합하다고 생각합니다.</p>
+<p>각 서비스는 Docker 기반으로 Collector를 실행하고, 해당 서비스의 Agent가 데이터를 전송하는 구조입니다.</p>
+<p>이와 같은 구조를 선택한 이유는 다음과 같습니다.</p>
+<ul>
+<li class="">서비스 간 관제 부하 분리</li>
+<li class="">서비스 특성에 맞는 알림 기준 설정</li>
+<li class="">확장에 유연하게 대응</li>
+</ul>
+<p>이를 통해 특정 서비스의 트래픽 증가나 장애 상황이&nbsp;다른 서비스의 관제 환경에 영향을 주지 않도록 하기 위함입니다.</p>
+<p><em>※ 이 부분은 운영하면서 조정이 필요합니다.</em></p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-관제-서버-준비">1. 관제 서버 준비<a href="https://goodsy.github.io/sykim-project/blog/2026/02/27/tech/monitoring-scouter#1-%EA%B4%80%EC%A0%9C-%EC%84%9C%EB%B2%84-%EC%A4%80%EB%B9%84" class="hash-link" aria-label="1. 관제 서버 준비에 대한 직접 링크" title="1. 관제 서버 준비에 대한 직접 링크" translate="no">​</a></h3>
+<p>현재 인프라 관제 서버에 Scouter를 설치하여 운영 중입니다.</p>
+<ul>
+<li class="">권장 사양: 4 Core / 8GB RAM / 200GB Disk 이상</li>
+<li class="">Docker 기반 구성</li>
+</ul>
+<p>각 서비스는 기존 관제 서버의 Docker 이미지를 그대로 활용하여, <code>docker-compose</code> 설정만 구성하면 별도 설치 없이 즉시 사용할 수 있습니다.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="시스템-구성">시스템 구성<a href="https://goodsy.github.io/sykim-project/blog/2026/02/27/tech/monitoring-scouter#%EC%8B%9C%EC%8A%A4%ED%85%9C-%EA%B5%AC%EC%84%B1" class="hash-link" aria-label="시스템 구성에 대한 직접 링크" title="시스템 구성에 대한 직접 링크" translate="no">​</a></h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain">[Service Server]</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">   └─ Scouter Agent (JVM)</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">        ↓ (6100 TCP/UDP)</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">[Scouter Collector]</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">   └─ Docker Container</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">        ↑ (web:6180 / client:6100)</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">[Scouter Paper / Client]</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">   └─ Web Dashboard</span><br></span></code></pre></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-collector-설치-docker">2. Collector 설치 (Docker)<a href="https://goodsy.github.io/sykim-project/blog/2026/02/27/tech/monitoring-scouter#2-collector-%EC%84%A4%EC%B9%98-docker" class="hash-link" aria-label="2. Collector 설치 (Docker)에 대한 직접 링크" title="2. Collector 설치 (Docker)에 대한 직접 링크" translate="no">​</a></h3>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="디렉토리-구성">디렉토리 구성<a href="https://goodsy.github.io/sykim-project/blog/2026/02/27/tech/monitoring-scouter#%EB%94%94%EB%A0%89%ED%86%A0%EB%A6%AC-%EA%B5%AC%EC%84%B1" class="hash-link" aria-label="디렉토리 구성에 대한 직접 링크" title="디렉토리 구성에 대한 직접 링크" translate="no">​</a></h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token function" style="color:rgb(80, 250, 123)">sudo</span><span class="token plain"> </span><span class="token function" style="color:rgb(80, 250, 123)">mkdir</span><span class="token plain"> </span><span class="token parameter variable" style="color:rgb(189, 147, 249);font-style:italic">-p</span><span class="token plain"> /data/scouter/f</span><span class="token punctuation" style="color:rgb(248, 248, 242)">{</span><span class="token plain">logs,data,conf</span><span class="token punctuation" style="color:rgb(248, 248, 242)">}</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain"></span><span class="token builtin class-name" style="color:rgb(189, 147, 249)">cd</span><span class="token plain"> /data/scouter/</span><br></span></code></pre></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="docker-compose-설정--docker-composeyml"><code>docker-compose</code> 설정 : docker-compose.yml<a href="https://goodsy.github.io/sykim-project/blog/2026/02/27/tech/monitoring-scouter#docker-compose-%EC%84%A4%EC%A0%95--docker-composeyml" class="hash-link" aria-label="docker-compose-설정--docker-composeyml에 대한 직접 링크" title="docker-compose-설정--docker-composeyml에 대한 직접 링크" translate="no">​</a></h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-yaml codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token key atrule">services</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">  </span><span class="token key atrule">scouter</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    </span><span class="token key atrule">image</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"> scouter</span><span class="token punctuation" style="color:rgb(248, 248, 242)">-</span><span class="token plain">collector</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain">2.21.2</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    </span><span class="token key atrule">container_name</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"> scouter</span><span class="token punctuation" style="color:rgb(248, 248, 242)">-</span><span class="token plain">collector</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    </span><span class="token key atrule">restart</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"> always</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    </span><span class="token key atrule">volumes</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">      </span><span class="token punctuation" style="color:rgb(248, 248, 242)">-</span><span class="token plain"> ./logs</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain">/home/scouter</span><span class="token punctuation" style="color:rgb(248, 248, 242)">-</span><span class="token plain">server/logs</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">      </span><span class="token punctuation" style="color:rgb(248, 248, 242)">-</span><span class="token plain"> ./data</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain">/home/scouter</span><span class="token punctuation" style="color:rgb(248, 248, 242)">-</span><span class="token plain">server/database</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">      </span><span class="token punctuation" style="color:rgb(248, 248, 242)">-</span><span class="token plain"> ./conf</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain">/home/scouter</span><span class="token punctuation" style="color:rgb(248, 248, 242)">-</span><span class="token plain">server/conf</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    </span><span class="token key atrule">ports</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">      </span><span class="token punctuation" style="color:rgb(248, 248, 242)">-</span><span class="token plain"> </span><span class="token string" style="color:rgb(255, 121, 198)">"6100:6100"</span><span class="token plain">        </span><span class="token comment" style="color:rgb(98, 114, 164)"># Agent / Client</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">      </span><span class="token punctuation" style="color:rgb(248, 248, 242)">-</span><span class="token plain"> </span><span class="token string" style="color:rgb(255, 121, 198)">"6100:6100/udp"</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">      </span><span class="token punctuation" style="color:rgb(248, 248, 242)">-</span><span class="token plain"> </span><span class="token string" style="color:rgb(255, 121, 198)">"6180:6180"</span><span class="token plain">        </span><span class="token comment" style="color:rgb(98, 114, 164)"># Paper / Web</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    </span><span class="token key atrule">networks</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">      </span><span class="token key atrule">scouter_net</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">        </span><span class="token key atrule">ipv4_address</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"> 10.10.100.200</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain"></span><span class="token key atrule">networks</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">  </span><span class="token key atrule">scouter_net</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    </span><span class="token key atrule">driver</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"> bridge</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    </span><span class="token key atrule">ipam</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">      </span><span class="token key atrule">config</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">        </span><span class="token punctuation" style="color:rgb(248, 248, 242)">-</span><span class="token plain"> </span><span class="token key atrule">subnet</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"> 10.10.100.0/24</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">          </span><span class="token key atrule">gateway</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"> 10.10.101.1</span><br></span></code></pre></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="scouterconf"><strong>scouter.conf</strong><a href="https://goodsy.github.io/sykim-project/blog/2026/02/27/tech/monitoring-scouter#scouterconf" class="hash-link" aria-label="scouterconf에 대한 직접 링크" title="scouterconf에 대한 직접 링크" translate="no">​</a></h3>
+<div class="language-properties codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-properties codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain">server_id=SERVICE-NAME-COLLECTOR</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">net_http_server_enabled=true   # Paper/Web 사용 시 설정</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain" style="display:inline-block"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">mgr_purge_profile_keep_days=2  # SQL Trace, Method Call Tree</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">mgr_purge_xlog_keep_days=5     # XLog 데이터 보관 주기</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">mgr_purge_counter_keep_days=15 # CPU, 메모리, TPS, 응답시간</span><br></span></code></pre></div></div>
+<p><em>※보관 정책은 서비스 특성에 맞게 조정합니다.</em></p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="실행">실행<a href="https://goodsy.github.io/sykim-project/blog/2026/02/27/tech/monitoring-scouter#%EC%8B%A4%ED%96%89" class="hash-link" aria-label="실행에 대한 직접 링크" title="실행에 대한 직접 링크" translate="no">​</a></h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token comment" style="color:rgb(98, 114, 164)"># 시작</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain"></span><span class="token function" style="color:rgb(80, 250, 123)">sudo</span><span class="token plain"> </span><span class="token function" style="color:rgb(80, 250, 123)">docker</span><span class="token plain"> compose up </span><span class="token parameter variable" style="color:rgb(189, 147, 249);font-style:italic">-d</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain"></span><span class="token comment" style="color:rgb(98, 114, 164)"># 중지</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain"></span><span class="token function" style="color:rgb(80, 250, 123)">sudo</span><span class="token plain"> </span><span class="token function" style="color:rgb(80, 250, 123)">docker</span><span class="token plain"> compose down</span><br></span></code></pre></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-관제-ui-구성-client--paper"><strong>3. 관제 UI 구성 (Client / Paper)</strong><a href="https://goodsy.github.io/sykim-project/blog/2026/02/27/tech/monitoring-scouter#3-%EA%B4%80%EC%A0%9C-ui-%EA%B5%AC%EC%84%B1-client--paper" class="hash-link" aria-label="3-관제-ui-구성-client--paper에 대한 직접 링크" title="3-관제-ui-구성-client--paper에 대한 직접 링크" translate="no">​</a></h3>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="scouter-client">Scouter Client<a href="https://goodsy.github.io/sykim-project/blog/2026/02/27/tech/monitoring-scouter#scouter-client" class="hash-link" aria-label="Scouter Client에 대한 직접 링크" title="Scouter Client에 대한 직접 링크" translate="no">​</a></h3>
+<p>Scouter Client는 데스크톱 기반 UI로, 상세 분석 및 설정 작업에 적합합니다.</p>
+<p>Releases에서 OS에 맞는 파일을 다운로드 후 실행합니다.</p>
+<p>🔗 <a href="https://github.com/scouter-project/scouter/releases" target="_blank" rel="noopener noreferrer" class="">https://github.com/scouter-project/scouter/releases</a></p>
+<ul>
+<li class="">압축 해제 후 <code>scouter.exe</code>(Windows 기준) 실행</li>
+<li class="">Collector 서버 IP / Port 입력 후 접속</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="scouter-paper-web">Scouter Paper (Web)<a href="https://goodsy.github.io/sykim-project/blog/2026/02/27/tech/monitoring-scouter#scouter-paper-web" class="hash-link" aria-label="Scouter Paper (Web)에 대한 직접 링크" title="Scouter Paper (Web)에 대한 직접 링크" translate="no">​</a></h3>
+<p>Paper는 Web 기반 UI로, 대시보드 공유/열람에 편리합니다.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="docker-composeyml-추가-설정"><strong><code>docker-compose.yml</code> 추가 설정</strong><a href="https://goodsy.github.io/sykim-project/blog/2026/02/27/tech/monitoring-scouter#docker-composeyml-%EC%B6%94%EA%B0%80-%EC%84%A4%EC%A0%95" class="hash-link" aria-label="docker-composeyml-추가-설정에 대한 직접 링크" title="docker-composeyml-추가-설정에 대한 직접 링크" translate="no">​</a></h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-yaml codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain"> </span><span class="token key atrule">scouter-paper</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    </span><span class="token key atrule">image</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"> scouterapm/scouter</span><span class="token punctuation" style="color:rgb(248, 248, 242)">-</span><span class="token plain">paper</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain">2.6.4</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    </span><span class="token key atrule">container_name</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"> scouter</span><span class="token punctuation" style="color:rgb(248, 248, 242)">-</span><span class="token plain">paper</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    </span><span class="token key atrule">restart</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"> always</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    </span><span class="token key atrule">depends_on</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">      </span><span class="token punctuation" style="color:rgb(248, 248, 242)">-</span><span class="token plain"> scouter</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    </span><span class="token key atrule">ports</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">      </span><span class="token punctuation" style="color:rgb(248, 248, 242)">-</span><span class="token plain"> </span><span class="token string" style="color:rgb(255, 121, 198)">"6188:80"</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    </span><span class="token key atrule">volumes</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">      </span><span class="token punctuation" style="color:rgb(248, 248, 242)">-</span><span class="token plain"> .conf/paper</span><span class="token punctuation" style="color:rgb(248, 248, 242)">-</span><span class="token plain">application.yml</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain">/home/scouter</span><span class="token punctuation" style="color:rgb(248, 248, 242)">-</span><span class="token plain">paper/conifg/application.yml</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    </span><span class="token key atrule">networks</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">      </span><span class="token key atrule">scouter_net</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">        </span><span class="token key atrule">ipv4_address</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"> 10.10.201.11</span><br></span></code></pre></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="paper-설정-파일"><strong>paper 설정 파일</strong><a href="https://goodsy.github.io/sykim-project/blog/2026/02/27/tech/monitoring-scouter#paper-%EC%84%A4%EC%A0%95-%ED%8C%8C%EC%9D%BC" class="hash-link" aria-label="paper-설정-파일에 대한 직접 링크" title="paper-설정-파일에 대한 직접 링크" translate="no">​</a></h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token function" style="color:rgb(80, 250, 123)">sudo</span><span class="token plain"> </span><span class="token function" style="color:rgb(80, 250, 123)">nano</span><span class="token plain"> paper-application.yml</span><br></span></code></pre></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-yaml codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token key atrule">server</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">  </span><span class="token key atrule">port</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"> </span><span class="token number">80</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain" style="display:inline-block"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain"></span><span class="token key atrule">paper</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">  </span><span class="token key atrule">collector</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">  </span><span class="token key atrule">host</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"> 10.10.100.251 </span><span class="token comment" style="color:rgb(98, 114, 164)">#Collector IP</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">  </span><span class="token key atrule">port</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"> </span><span class="token number">6180</span><span class="token plain">          </span><span class="token comment" style="color:rgb(98, 114, 164)">#Collector Port</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">  </span><span class="token key atrule">protocol</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"> http</span><br></span></code></pre></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="web-접속"><strong>Web 접속</strong><a href="https://goodsy.github.io/sykim-project/blog/2026/02/27/tech/monitoring-scouter#web-%EC%A0%91%EC%86%8D" class="hash-link" aria-label="web-접속에 대한 직접 링크" title="web-접속에 대한 직접 링크" translate="no">​</a></h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain">http://서버IP:6188</span><br></span></code></pre></div></div>
+<p>Scouter Paper 대한 자세한 정보와 Layout 구성은 공식 문서를 참고하시기 바랍니다.</p>
+<p><strong>🔗 Scouter Paper 공식 문서</strong></p>
+<p><a href="https://scouter-contrib.github.io/scouter-paper/manual.html" target="_blank" rel="noopener noreferrer" class="">https://scouter-contrib.github.io/scouter-paper/manual.html</a></p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-서비스-서버에-agent-적용">4. 서비스 서버에 Agent 적용<a href="https://goodsy.github.io/sykim-project/blog/2026/02/27/tech/monitoring-scouter#4-%EC%84%9C%EB%B9%84%EC%8A%A4-%EC%84%9C%EB%B2%84%EC%97%90-agent-%EC%A0%81%EC%9A%A9" class="hash-link" aria-label="4. 서비스 서버에 Agent 적용에 대한 직접 링크" title="4. 서비스 서버에 Agent 적용에 대한 직접 링크" translate="no">​</a></h3>
+<p>각 서비스에 Agent를 적용하고 재기동하면 Collector가 자동으로 지표를 수집합니다.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="다운로드-및-해제">다운로드 및 해제<a href="https://goodsy.github.io/sykim-project/blog/2026/02/27/tech/monitoring-scouter#%EB%8B%A4%EC%9A%B4%EB%A1%9C%EB%93%9C-%EB%B0%8F-%ED%95%B4%EC%A0%9C" class="hash-link" aria-label="다운로드 및 해제에 대한 직접 링크" title="다운로드 및 해제에 대한 직접 링크" translate="no">​</a></h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token function" style="color:rgb(80, 250, 123)">mkdir</span><span class="token plain"> </span><span class="token parameter variable" style="color:rgb(189, 147, 249);font-style:italic">-p</span><span class="token plain"> /home/scouter/</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain"></span><span class="token builtin class-name" style="color:rgb(189, 147, 249)">cd</span><span class="token plain"> /home/scouter/</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain" style="display:inline-block"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain"></span><span class="token comment" style="color:rgb(98, 114, 164)"># Scouter download</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain"></span><span class="token function" style="color:rgb(80, 250, 123)">wget</span><span class="token plain"> https://github.com/scouter-project/scouter/releases/download/v2.21.1/scouter-all-2.21.1.tar.gz</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain"></span><span class="token function" style="color:rgb(80, 250, 123)">tar</span><span class="token plain"> </span><span class="token parameter variable" style="color:rgb(189, 147, 249);font-style:italic">-xvf</span><span class="token plain"> scouter-all-2.21.1.tar.gz</span><br></span></code></pre></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token comment" style="color:rgb(98, 114, 164)"># batch 관제는 batch.agent로 하며 2.20.0이 최신(마지막) 버전</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain"></span><span class="token function" style="color:rgb(80, 250, 123)">wget</span><span class="token plain"> https://github.com/scouter-project/scouter/releases/download/v2.20.0/scouter-all-2.20.0.tar.gz</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain"></span><span class="token function" style="color:rgb(80, 250, 123)">tar</span><span class="token plain"> </span><span class="token parameter variable" style="color:rgb(189, 147, 249);font-style:italic">-xvf</span><span class="token plain"> scouter-all-2.21.1.tar.gz</span><br></span></code></pre></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="agent-conf-설정--scouter-서비스명-conf">agent conf 설정 : scouter-<code>\{서비스명\}</code> .conf<a href="https://goodsy.github.io/sykim-project/blog/2026/02/27/tech/monitoring-scouter#agent-conf-%EC%84%A4%EC%A0%95--scouter-%EC%84%9C%EB%B9%84%EC%8A%A4%EB%AA%85-conf" class="hash-link" aria-label="agent-conf-설정--scouter-서비스명-conf에 대한 직접 링크" title="agent-conf-설정--scouter-서비스명-conf에 대한 직접 링크" translate="no">​</a></h3>
+<div class="language-properties codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-properties codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain">obj_name=prod-`\{서비스명\}` </span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">net_collector_ip=10.10.100.111  # collector 서버 IP</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">net_collector_udp_port=6100     # collector port</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">net_collector_tcp_port=6100</span><br></span></code></pre></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="jvm-옵션-추가">JVM 옵션 추가<a href="https://goodsy.github.io/sykim-project/blog/2026/02/27/tech/monitoring-scouter#jvm-%EC%98%B5%EC%85%98-%EC%B6%94%EA%B0%80" class="hash-link" aria-label="JVM 옵션 추가에 대한 직접 링크" title="JVM 옵션 추가에 대한 직접 링크" translate="no">​</a></h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain"># start.sh vm option 추가</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">-javaagent:/home/scouter/agent.java/scouter.agent.jar</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">-Dscouter.config=/home/scouter/agent.java/conf/scouter-xxx.conf</span><br></span></code></pre></div></div>
+<p>서비스 재기동 후 Collector에서 확인 가능합니다.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="-agent-설정-참고-사항"><strong>※ Agent 설정 참고 사항</strong><a href="https://goodsy.github.io/sykim-project/blog/2026/02/27/tech/monitoring-scouter#-agent-%EC%84%A4%EC%A0%95-%EC%B0%B8%EA%B3%A0-%EC%82%AC%ED%95%AD" class="hash-link" aria-label="-agent-설정-참고-사항에 대한 직접 링크" title="-agent-설정-참고-사항에 대한 직접 링크" translate="no">​</a></h3>
+<p><strong>1. SQL Xlog 노출 설정</strong></p>
+<p>MariaDB Java Client 3.0 이상을 사용하는 경우,&nbsp;기본 설정만으로는 SQL XLog가 정상적으로 수집되지 않을 수 있습니다.</p>
+<p>이 경우 <code>agent.conf</code> 파일에 아래 설정을 추가해야 합니다.</p>
+<div class="language-properties codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-properties codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain">#Method set for preparestatement hooking</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">hook_jdbc_pstmt_classes=org.mariadb.jdbc.ClientPreparedStatement</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">#Method set for statement hooking</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">hook_jdbc_stmt_classes=org.mariadb.jdbc.Statement</span><br></span></code></pre></div></div>
+<p>해당 설정을 통해 PreparedStatement 및 Statement 기반 SQL 실행 로그가 XLog에&nbsp;노출됩니다.</p>
+<p><strong>2. SQL Xlog 바인딩 값 미노출</strong></p>
+<p>MariaDB Driver 사용 시, SQL 바인딩 값이 XLog에 노출되지 않는 현상이 있습니다.</p>
+<ul>
+<li class="">Driver Class: <code>org.mariadb.jdbc.Driver</code></li>
+<li class="">MariaDB Driver는 바인딩 값 추적을 Scouter에서 완전하게 지원하지 않습니다.</li>
+</ul>
+<p>따라서 운영 환경에서 SQL 파라미터 값까지 추적이 필요한 경우,&nbsp;Driver 특성에 대한 사전 검토가 필요합니다.</p>
+<p><strong>3. Native Netty 서비스 XLog 설정</strong></p>
+<p>PG 승인 데몬은 Native Netty 기반 서비스로 기본 Java Web 트랜잭션과 달리 별도의 Hook 설정이 필요합니다.</p>
+<p>특히 다음과 같은 구간을 명시적으로 Hook 대상으로 추가해야 합니다.</p>
+<ul>
+<li class="">결제창(Front)으로부터 수신하는 Channel 처리 구간</li>
+<li class="">1차 PG 연동을 수행하는 HTTP 통신 구간</li>
+<li class="">내부/외부 Socket 송수신 구간</li>
+</ul>
+<p><code>scouter-approval-xxx.conf</code> 설정 예시는 다음과 같습니다.</p>
+<div class="language-properties codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-properties codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain">#결제창과 송수신하는 Channel package 및 method 명</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">hook_server_patterns=</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">#http 및 scoket 통신 등의 외부통신 package 및 method 명</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">hook_method_patterns=</span><br></span></code></pre></div></div>
+<p>이를 통해 Netty 기반 트랜잭션도 XLog 및 성능 관제 대상에 포함시킬 수 있습니다.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="현재-관제-시스템-적용-현황"><strong>현재 관제 시스템 적용 현황</strong><a href="https://goodsy.github.io/sykim-project/blog/2026/02/27/tech/monitoring-scouter#%ED%98%84%EC%9E%AC-%EA%B4%80%EC%A0%9C-%EC%8B%9C%EC%8A%A4%ED%85%9C-%EC%A0%81%EC%9A%A9-%ED%98%84%ED%99%A9" class="hash-link" aria-label="현재-관제-시스템-적용-현황에 대한 직접 링크" title="현재-관제-시스템-적용-현황에 대한 직접 링크" translate="no">​</a></h2>
+<p>PayTech팀에서는 현재 PG 주요 서비스에 Agent를 적용하여 운영 환경에서 서비스 지표를 수집하고 있습니다.</p>
+<ul>
+<li class="">PG 승인</li>
+<li class="">결제창</li>
+<li class="">API</li>
+<li class="">내부 및 가맹점 관리자 시스템</li>
+</ul>
+<p>적용 이후, 그동안 막연히 “조금 느린 것 같다”고 느끼던 구간이 수치로 확인되기 시작했습니다.</p>
+<p>아직 명확한 기준선(Baseline)이 완전히 정립된 단계는 아니지만 <strong>무엇이 얼마나 느려졌는지</strong>&nbsp;그리고 <strong>어느 구간에서 병목이 발생하는지</strong> 파악할 수 있는 상태가 되었습니다.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="앞으로의-계획"><strong>앞으로의 계획</strong><a href="https://goodsy.github.io/sykim-project/blog/2026/02/27/tech/monitoring-scouter#%EC%95%9E%EC%9C%BC%EB%A1%9C%EC%9D%98-%EA%B3%84%ED%9A%8D" class="hash-link" aria-label="앞으로의-계획에 대한 직접 링크" title="앞으로의-계획에 대한 직접 링크" translate="no">​</a></h3>
+<ol>
+<li class="">
+<p>핵심 트래픽 구간 중심 적용 및 기준선 설정</p>
+</li>
+<li class="">
+<p>서비스별 관제 항목 정의 및 알림 정책 정리</p>
+</li>
+<li class="">
+<p>PG 정산/매입 배치 영역 확장 (처리 건수, 소요 시간, Retry/Skip 비율 등)</p>
+</li>
+</ol>
+<hr>
+<p>이번 관제 도입의 목표는 <strong>서비스의 상태를 실시간으로 확인하고, 장애를 고객보다 먼저 인지하는 구조</strong>로 전환하는 것입니다.</p>
+<p>응답 지연과 실패율 증가를 사후 대응이 아닌 사전 감지로 바꾸고 감이 아닌 데이터로 판단하는 운영 방식으로 나아가고자 합니다.</p>
+<p>저에게도 관제 시스템 도입은 처음 시도해보는 작업입니다.</p>
+<p>완성된 체계를 공유하기보다는 먼저 적용해본 경험을 나누는 내용이라고 봐주시면 감사하겠습니다.</p>]]></content:encoded>
+            <category>APM</category>
+            <category>monitoring</category>
+            <category>Scouter</category>
+            <category>Monitoring</category>
+        </item>
+        <item>
+            <title><![CDATA[Scouter 기반 관제 시스템 구축하기]]></title>
+            <link>https://goodsy.github.io/sykim-project/blog/2026/02/19/private/scouter-system-construction</link>
+            <guid>https://goodsy.github.io/sykim-project/blog/2026/02/19/private/scouter-system-construction</guid>
             <pubDate>Thu, 19 Feb 2026 00:00:00 GMT</pubDate>
             <description><![CDATA[Scouter 도입하기]]></description>
-            <content:encoded><![CDATA[<p>Scouter는 Java 기반 국내 오픈소스 APM이며, 선택한 이유는 아래와 같다.</p>
-<table><thead><tr><th>항목</th><th>이유</th></tr></thead><tbody><tr><td>Java Agent 방식</td><td>코드 수정 없이 빠른 적용 가능</td></tr><tr><td>XLog 트랜잭션 추적</td><td>요청 단위 상세 분석</td></tr><tr><td>SQL 바인딩 추적 가능</td><td>정산 검증 필수</td></tr><tr><td>Batch 지원</td><td>배치 환경 관제 가능</td></tr><tr><td>오픈소스</td><td>비용 부담 없음</td></tr></tbody></table>
+            <content:encoded><![CDATA[<p>Scouter는 Java 기반 국내 오픈소스 APM이며 선택한 이유는 아래와 같습니다.</p>
+<ul>
+<li class="">Java Agent 방식 : 코드 수정 없이 빠른 적용 가능</li>
+<li class="">XLog 트랜잭션 추적 : 요청 단위 상세 분석</li>
+<li class="">SQL 바인딩 추적 가능</li>
+<li class="">Batch 지원 : 배치 환경 관제 가능</li>
+<li class="">오픈소스 : 비용 부담 없음</li>
+</ul>
 <h1>Scouter 동작 원리</h1>
-<p>관제 서버에 Collector(Server)를 띄우고 각각의 Agent(Application)들이 정보를 수집하여 Collector로 보내는 방식이다.
-그리고 Collector의 정보를 Client 또는 Paper에서 관제 정보를 조회 및 실행하여 확인이 가능하다.</p>
-<p><img decoding="async" loading="lazy" alt="img_2.png" src="https://goodsy.github.io/sykim-project/assets/images/scouter_system-d1345061acb60890f3c79b1b3c505150.png" width="711" height="411" class="img_ev3q"></p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain">[Spring Boot WAS]  - Web</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">[Netty 서버]        - TCP 통신</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">[Spring Batch]     - 배치 처리</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain" style="display:inline-block"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    ↓ (Java Agent)</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain" style="display:inline-block"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">Scouter Agent</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    ↓</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">Scouter Server</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    ↓</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">Scouter Client or Paper</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain" style="display:inline-block"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain" style="display:inline-block"></span><br></span></code></pre></div></div>
+<p>관제 서버에 Collector(Server)를 띄우고 각각의 Agent(Application)들이 정보를 수집하여 Collector로 보내는 방식입니다.
+그리고 Collector의 정보를 Client 또는 Paper에서 관제 정보를 조회 및 실행하여 확인이 가능합니다.</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain">[Spring Boot WAS]  - Web</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">[Netty 서버]        - TCP 통신</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">[Spring Batch]     - 배치 처리</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain" style="display:inline-block"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    ↓ (Java Agent)</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain" style="display:inline-block"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">Scouter Agent</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    ↓</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">Scouter Server</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    ↓</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">Scouter Client or Paper</span><br></span></code></pre></div></div>
 <h1>Scouter 구성도</h1>
 <p>Scouter Server(Collector)를 설치하고, 각 서비스의 Agent를 JVM Option으로 적용하면
-운영자 PC에서는 Scouter Client 또는 Scouter Paper(Web)에서 Scouter에서 제공하는 웹 어플리케이션(Tomcat, JBoss 등)과 JVM 어플리케이션 지표를 확인 할 수 있다.
-Scouter Client는 RCP 기반 클라이언트 프로그램으로 PC(윈도우 환경)에 설치, Scouter Paper 이용 시에는 서버에 별도로 설치하여 사용한다.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="적용-가능-시스템-환경">적용 가능 시스템 환경<a href="https://goodsy.github.io/sykim-project/blog/2026/02/19/tech/scouter-system-construction#%EC%A0%81%EC%9A%A9-%EA%B0%80%EB%8A%A5-%EC%8B%9C%EC%8A%A4%ED%85%9C-%ED%99%98%EA%B2%BD" class="hash-link" aria-label="적용 가능 시스템 환경에 대한 직접 링크" title="적용 가능 시스템 환경에 대한 직접 링크" translate="no">​</a></h3>
+운영자 PC에서는 Scouter Client 또는 Scouter Paper(Web)에서 Scouter에서 제공하는 웹 어플리케이션(Tomcat, JBoss 등)과 JVM 어플리케이션 지표를 확인 할 수 있습니다..
+Scouter Client는 RCP 기반 클라이언트 프로그램으로 PC(윈도우 환경)에 설치, Scouter Paper 이용 시에는 서버에 별도로 설치하여 사용합니다.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="적용-가능-시스템-환경">적용 가능 시스템 환경<a href="https://goodsy.github.io/sykim-project/blog/2026/02/19/private/scouter-system-construction#%EC%A0%81%EC%9A%A9-%EA%B0%80%EB%8A%A5-%EC%8B%9C%EC%8A%A4%ED%85%9C-%ED%99%98%EA%B2%BD" class="hash-link" aria-label="적용 가능 시스템 환경에 대한 직접 링크" title="적용 가능 시스템 환경에 대한 직접 링크" translate="no">​</a></h3>
 <ul>
 <li class="">Java 에이전트: 웹 애플리케이션(Tomcat, JBoss, Resin 등에서 실행), 독립형 Java 애플리케이션</li>
 <li class="">호스트 에이전트: Linux, Windows, Unix</li>
 </ul>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="scouter-프로그램">Scouter 프로그램<a href="https://goodsy.github.io/sykim-project/blog/2026/02/19/tech/scouter-system-construction#scouter-%ED%94%84%EB%A1%9C%EA%B7%B8%EB%9E%A8" class="hash-link" aria-label="Scouter 프로그램에 대한 직접 링크" title="Scouter 프로그램에 대한 직접 링크" translate="no">​</a></h3>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="scouter-프로그램">Scouter 프로그램<a href="https://goodsy.github.io/sykim-project/blog/2026/02/19/private/scouter-system-construction#scouter-%ED%94%84%EB%A1%9C%EA%B7%B8%EB%9E%A8" class="hash-link" aria-label="Scouter 프로그램에 대한 직접 링크" title="Scouter 프로그램에 대한 직접 링크" translate="no">​</a></h3>
 <ul>
 <li class="">Agent : 성능 정보를 수집하여 서버로 전송<!-- -->
 <ul>
@@ -53,29 +214,29 @@ Scouter Client는 RCP 기반 클라이언트 프로그램으로 PC(윈도우 환
             <guid>https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture</guid>
             <pubDate>Thu, 15 Jan 2026 00:00:00 GMT</pubDate>
             <description><![CDATA[Prometheus + Grafana + Spring Actuator + Scouter 기반 관제 아키텍처와 관제 항목 정리]]></description>
-            <content:encoded><![CDATA[<p>결제 서비스는 특성상 <strong>단 1분의 장애도 매출 손실</strong>로 이어지고, 사용자 경험 악화로 인해 <strong>서비스 신뢰도</strong>가 빠르게 하락한다.
-따라서 장애 발생 이후에 로그를 뒤져 원인을 찾는 사후 대응 방식(Post-Mortem)에서 벗어나, 장애 징후를 <strong>선제적으로 탐지</strong>하고 문제 구간을 <strong>즉시 식별</strong>할 수 있는 관제 시스템이 필요하다.</p>
-<p>관제 시스템의 목적은 단순히 서버가 살아있다/죽었다를 보는 것이 아니라, <strong>서비스가 정상적으로 결제 성공을 만들고 있는지</strong>를 데이터로 확인하는 것이다.</p>
+            <content:encoded><![CDATA[<p>결제 서비스는 특성상 <strong>단 1분의 장애도 매출 손실</strong>로 이어지고, 사용자 경험 악화로 인해 <strong>서비스 신뢰도</strong>가 빠르게 하락합니다.
+따라서 장애 발생 이후에 로그를 뒤져 원인을 찾는 사후 대응 방식(Post-Mortem)에서 벗어나, 장애 징후를 <strong>선제적으로 탐지</strong>하고 문제 구간을 <strong>즉시 식별</strong>할 수 있는 관제 시스템이 필요합니다.</p>
+<p>관제 시스템의 목적은 단순히 서버가 살아있다/죽었다를 보는 것이 아니라, <strong>서비스가 정상적으로 결제 성공을 만들고 있는지</strong>를 데이터로 확인하는 것입니다.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="현재-현황">현재 현황<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#%ED%98%84%EC%9E%AC-%ED%98%84%ED%99%A9" class="hash-link" aria-label="현재 현황에 대한 직접 링크" title="현재 현황에 대한 직접 링크" translate="no">​</a></h2>
-<p>현재 시스템의 관제는 주로 다음과 같은 <strong>인프라 중심 모니터링</strong>에 집중되어 있다.</p>
+<p>현재 시스템의 관제는 주로 다음과 같은 <strong>인프라 중심 모니터링</strong>에 집중되어 있습니다.</p>
 <ul>
 <li class="">CPU</li>
 <li class="">Memory</li>
 <li class="">Disk</li>
 </ul>
-<p>즉, “서버 리소스가 정상인가?”는 확인 가능하지만, 실제 장애 상황에서 가장 중요한 결제 실패 원인(외부 연동, 내부 로직, DB 병목)을 빠르게 특정하기 어려운 상황이였다.</p>
+<p>즉, “서버 리소스가 정상인가?”는 확인 가능하지만, 실제 장애 상황에서 가장 중요한 결제 실패 원인(외부 연동, 내부 로직, DB 병목)을 빠르게 특정하기 어려운 상황이였습니다.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="관제-시스템이-해결해야-하는-문제">관제 시스템이 해결해야 하는 문제<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#%EA%B4%80%EC%A0%9C-%EC%8B%9C%EC%8A%A4%ED%85%9C%EC%9D%B4-%ED%95%B4%EA%B2%B0%ED%95%B4%EC%95%BC-%ED%95%98%EB%8A%94-%EB%AC%B8%EC%A0%9C" class="hash-link" aria-label="관제 시스템이 해결해야 하는 문제에 대한 직접 링크" title="관제 시스템이 해결해야 하는 문제에 대한 직접 링크" translate="no">​</a></h2>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="-장애-인지-시간mttd-단축">✅ 장애 인지 시간(MTTD) 단축<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#-%EC%9E%A5%EC%95%A0-%EC%9D%B8%EC%A7%80-%EC%8B%9C%EA%B0%84mttd-%EB%8B%A8%EC%B6%95" class="hash-link" aria-label="✅ 장애 인지 시간(MTTD) 단축에 대한 직접 링크" title="✅ 장애 인지 시간(MTTD) 단축에 대한 직접 링크" translate="no">​</a></h3>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="장애-인지-시간mttd-단축">장애 인지 시간(MTTD) 단축<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#%EC%9E%A5%EC%95%A0-%EC%9D%B8%EC%A7%80-%EC%8B%9C%EA%B0%84mttd-%EB%8B%A8%EC%B6%95" class="hash-link" aria-label="장애 인지 시간(MTTD) 단축에 대한 직접 링크" title="장애 인지 시간(MTTD) 단축에 대한 직접 링크" translate="no">​</a></h3>
 <ul>
 <li class="">실시간 알림을 통해 장애를 <strong>즉시 인지</strong></li>
 <li class="">CS 제보보다 관제가 먼저 반응하는 구조</li>
 </ul>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="-원인-파악-및-복구-시간mttr-단축">✅ 원인 파악 및 복구 시간(MTTR) 단축<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#-%EC%9B%90%EC%9D%B8-%ED%8C%8C%EC%95%85-%EB%B0%8F-%EB%B3%B5%EA%B5%AC-%EC%8B%9C%EA%B0%84mttr-%EB%8B%A8%EC%B6%95" class="hash-link" aria-label="✅ 원인 파악 및 복구 시간(MTTR) 단축에 대한 직접 링크" title="✅ 원인 파악 및 복구 시간(MTTR) 단축에 대한 직접 링크" translate="no">​</a></h3>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="원인-파악-및-복구-시간mttr-단축">원인 파악 및 복구 시간(MTTR) 단축<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#%EC%9B%90%EC%9D%B8-%ED%8C%8C%EC%95%85-%EB%B0%8F-%EB%B3%B5%EA%B5%AC-%EC%8B%9C%EA%B0%84mttr-%EB%8B%A8%EC%B6%95" class="hash-link" aria-label="원인 파악 및 복구 시간(MTTR) 단축에 대한 직접 링크" title="원인 파악 및 복구 시간(MTTR) 단축에 대한 직접 링크" translate="no">​</a></h3>
 <ul>
 <li class="">장애 발생 시 <strong>App / DB / 외부 연동 구간을 명확히 분리</strong></li>
 <li class="">“어디가 문제인지”를 1분 내 좁히는 것</li>
 </ul>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="-데이터-기반-의사결정">✅ 데이터 기반 의사결정<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#-%EB%8D%B0%EC%9D%B4%ED%84%B0-%EA%B8%B0%EB%B0%98-%EC%9D%98%EC%82%AC%EA%B2%B0%EC%A0%95" class="hash-link" aria-label="✅ 데이터 기반 의사결정에 대한 직접 링크" title="✅ 데이터 기반 의사결정에 대한 직접 링크" translate="no">​</a></h3>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="데이터-기반-의사결정">데이터 기반 의사결정<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#%EB%8D%B0%EC%9D%B4%ED%84%B0-%EA%B8%B0%EB%B0%98-%EC%9D%98%EC%82%AC%EA%B2%B0%EC%A0%95" class="hash-link" aria-label="데이터 기반 의사결정에 대한 직접 링크" title="데이터 기반 의사결정에 대한 직접 링크" translate="no">​</a></h3>
 <ul>
 <li class="">성능/장애/성공률 지표를 정량화</li>
 <li class="">“느린 것 같다”가 아니라 <strong>P95/P99 지표 기반으로 판단</strong></li>
@@ -83,12 +244,12 @@ Scouter Client는 RCP 기반 클라이언트 프로그램으로 PC(윈도우 환
 </ul>
 <hr>
 <h1>관제 범위 (5단계 Layer 기준)</h1>
-<p>장애 흐름에 따라 전체 구간을 정의하되, 개발/운영 파트에서 직접 제어 가능한 영역(L4 App / L5 DB)을 핵심 관제 구간으로 도입한다.</p>
+<p>장애 흐름에 따라 전체 구간을 정의하되 개발/운영 파트에서 직접 제어 가능한 영역(L4 App / L5 DB)을 핵심 관제 구간으로 도입하기로 하였습니다.</p>
 <table><thead><tr><th>Layer</th><th>구분</th><th>주요 관제 요소</th><th>활용 도구</th><th>비고</th></tr></thead><tbody><tr><td>L1</td><td>User Layer</td><td>결제창 로딩 속도, 이탈률</td><td>-</td><td>사용자 경험</td></tr><tr><td>L2</td><td>Network Layer</td><td>DNS, LB, 트래픽 폭주</td><td>-</td><td>구간 장애</td></tr><tr><td>L3</td><td>Infra Layer</td><td>CPU, Memory, Disk I/O</td><td>Prometheus, Grafana</td><td>리소스 장애</td></tr><tr><td><strong>L4</strong></td><td><strong>App Layer</strong></td><td><strong>결제 로직 에러, 외부 API 지연, Thread/JVM 상태</strong></td><td>Spring Actuator, Scouter</td><td><strong>핵심 관제</strong></td></tr><tr><td><strong>L5</strong></td><td><strong>DB Layer</strong></td><td><strong>Slow Query, Connection Pool, Lock 여부</strong></td><td>Scouter, Prometheus</td><td><strong>핵심 관제</strong></td></tr></tbody></table>
 <hr>
 <h1>관제 항목 (공통 / 서비스별)</h1>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="공통-관제-항목">공통 관제 항목<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#%EA%B3%B5%ED%86%B5-%EA%B4%80%EC%A0%9C-%ED%95%AD%EB%AA%A9" class="hash-link" aria-label="공통 관제 항목에 대한 직접 링크" title="공통 관제 항목에 대한 직접 링크" translate="no">​</a></h3>
-<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="-트래픽--응답">✅ 트래픽 / 응답<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#-%ED%8A%B8%EB%9E%98%ED%94%BD--%EC%9D%91%EB%8B%B5" class="hash-link" aria-label="✅ 트래픽 / 응답에 대한 직접 링크" title="✅ 트래픽 / 응답에 대한 직접 링크" translate="no">​</a></h4>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="트래픽--응답">트래픽 / 응답<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#%ED%8A%B8%EB%9E%98%ED%94%BD--%EC%9D%91%EB%8B%B5" class="hash-link" aria-label="트래픽 / 응답에 대한 직접 링크" title="트래픽 / 응답에 대한 직접 링크" translate="no">​</a></h4>
 <ul>
 <li class="">TPS / RPS</li>
 <li class="">응답시간 Latency (P50 / P95 / P99)</li>
@@ -96,7 +257,7 @@ Scouter Client는 RCP 기반 클라이언트 프로그램으로 PC(윈도우 환
 <li class="">Timeout 비율</li>
 <li class="">에러율(전체 요청 대비 실패율)</li>
 </ul>
-<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="-서버-리소스">✅ 서버 리소스<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#-%EC%84%9C%EB%B2%84-%EB%A6%AC%EC%86%8C%EC%8A%A4" class="hash-link" aria-label="✅ 서버 리소스에 대한 직접 링크" title="✅ 서버 리소스에 대한 직접 링크" translate="no">​</a></h4>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="서버-리소스">서버 리소스<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#%EC%84%9C%EB%B2%84-%EB%A6%AC%EC%86%8C%EC%8A%A4" class="hash-link" aria-label="서버 리소스에 대한 직접 링크" title="서버 리소스에 대한 직접 링크" translate="no">​</a></h4>
 <ul>
 <li class="">CPU 사용률</li>
 <li class="">메모리(Heap / Non-Heap)</li>
@@ -104,7 +265,7 @@ Scouter Client는 RCP 기반 클라이언트 프로그램으로 PC(윈도우 환
 <li class="">Disk 사용률 및 I/O</li>
 <li class="">Network In/Out</li>
 </ul>
-<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="-jvm--애플리케이션-상태">✅ JVM / 애플리케이션 상태<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#-jvm--%EC%95%A0%ED%94%8C%EB%A6%AC%EC%BC%80%EC%9D%B4%EC%85%98-%EC%83%81%ED%83%9C" class="hash-link" aria-label="✅ JVM / 애플리케이션 상태에 대한 직접 링크" title="✅ JVM / 애플리케이션 상태에 대한 직접 링크" translate="no">​</a></h4>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="jvm--애플리케이션-상태">JVM / 애플리케이션 상태<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#jvm--%EC%95%A0%ED%94%8C%EB%A6%AC%EC%BC%80%EC%9D%B4%EC%85%98-%EC%83%81%ED%83%9C" class="hash-link" aria-label="JVM / 애플리케이션 상태에 대한 직접 링크" title="JVM / 애플리케이션 상태에 대한 직접 링크" translate="no">​</a></h4>
 <ul>
 <li class="">Thread 수 / Runnable / Blocked</li>
 <li class="">Active connection 수 (서버/클라이언트)</li>
@@ -112,7 +273,7 @@ Scouter Client는 RCP 기반 클라이언트 프로그램으로 PC(윈도우 환
 <li class="">로그 ERROR 발생률</li>
 </ul>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="서비스별-관제-항목">서비스별 관제 항목<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#%EC%84%9C%EB%B9%84%EC%8A%A4%EB%B3%84-%EA%B4%80%EC%A0%9C-%ED%95%AD%EB%AA%A9" class="hash-link" aria-label="서비스별 관제 항목에 대한 직접 링크" title="서비스별 관제 항목에 대한 직접 링크" translate="no">​</a></h3>
-<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="-승인-서비스-spring-boot--native-netty">✅ 승인 서비스 (Spring Boot + Native Netty)<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#-%EC%8A%B9%EC%9D%B8-%EC%84%9C%EB%B9%84%EC%8A%A4-spring-boot--native-netty" class="hash-link" aria-label="✅ 승인 서비스 (Spring Boot + Native Netty)에 대한 직접 링크" title="✅ 승인 서비스 (Spring Boot + Native Netty)에 대한 직접 링크" translate="no">​</a></h4>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="승인-서비스-spring-boot--native-netty">승인 서비스 (Spring Boot + Native Netty)<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#%EC%8A%B9%EC%9D%B8-%EC%84%9C%EB%B9%84%EC%8A%A4-spring-boot--native-netty" class="hash-link" aria-label="승인 서비스 (Spring Boot + Native Netty)에 대한 직접 링크" title="승인 서비스 (Spring Boot + Native Netty)에 대한 직접 링크" translate="no">​</a></h4>
 <ul>
 <li class="">승인 성공률 / 실패율</li>
 <li class="">외부 원천사 응답시간 및 Timeout</li>
@@ -120,28 +281,27 @@ Scouter Client는 RCP 기반 클라이언트 프로그램으로 PC(윈도우 환
 <li class="">Thread / CPU / GC</li>
 <li class="">외부 원천사 연동 상태</li>
 </ul>
-<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="-결제창spring-boot">✅ 결제창(Spring Boot)<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#-%EA%B2%B0%EC%A0%9C%EC%B0%BDspring-boot" class="hash-link" aria-label="✅ 결제창(Spring Boot)에 대한 직접 링크" title="✅ 결제창(Spring Boot)에 대한 직접 링크" translate="no">​</a></h4>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="결제창spring-boot">결제창(Spring Boot)<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#%EA%B2%B0%EC%A0%9C%EC%B0%BDspring-boot" class="hash-link" aria-label="결제창(Spring Boot)에 대한 직접 링크" title="결제창(Spring Boot)에 대한 직접 링크" translate="no">​</a></h4>
 <ul>
 <li class="">결제 진입 → 승인 요청 전환율</li>
 <li class="">4xx 비율(사용자 입력/검증 실패)</li>
 <li class="">결제 UX 지연(P95)</li>
 <li class="">외부 원천사 응답시간 및 Timeout</li>
 </ul>
-<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="-batch-정산-및-매입--spring-batch">✅ Batch (정산 및 매입 / Spring Batch)<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#-batch-%EC%A0%95%EC%82%B0-%EB%B0%8F-%EB%A7%A4%EC%9E%85--spring-batch" class="hash-link" aria-label="✅ Batch (정산 및 매입 / Spring Batch)에 대한 직접 링크" title="✅ Batch (정산 및 매입 / Spring Batch)에 대한 직접 링크" translate="no">​</a></h4>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="batch-정산-및-매입--spring-batch">Batch (정산 및 매입 / Spring Batch)<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#batch-%EC%A0%95%EC%82%B0-%EB%B0%8F-%EB%A7%A4%EC%9E%85--spring-batch" class="hash-link" aria-label="Batch (정산 및 매입 / Spring Batch)에 대한 직접 링크" title="Batch (정산 및 매입 / Spring Batch)에 대한 직접 링크" translate="no">​</a></h4>
 <ul>
 <li class="">Job / Step 상태</li>
 <li class="">처리 건수(성공/실패/Skip)</li>
 <li class="">누락/중복 여부</li>
 <li class="">DB 부하(락 / 슬로우쿼리)</li>
 </ul>
-<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="-관리자-시스템-운영-및-관리--spring-boot">✅ 관리자 시스템 (운영 및 관리 / Spring Boot)<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#-%EA%B4%80%EB%A6%AC%EC%9E%90-%EC%8B%9C%EC%8A%A4%ED%85%9C-%EC%9A%B4%EC%98%81-%EB%B0%8F-%EA%B4%80%EB%A6%AC--spring-boot" class="hash-link" aria-label="✅ 관리자 시스템 (운영 및 관리 / Spring Boot)에 대한 직접 링크" title="✅ 관리자 시스템 (운영 및 관리 / Spring Boot)에 대한 직접 링크" translate="no">​</a></h4>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="관리자-시스템-운영-및-관리--spring-boot">관리자 시스템 (운영 및 관리 / Spring Boot)<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#%EA%B4%80%EB%A6%AC%EC%9E%90-%EC%8B%9C%EC%8A%A4%ED%85%9C-%EC%9A%B4%EC%98%81-%EB%B0%8F-%EA%B4%80%EB%A6%AC--spring-boot" class="hash-link" aria-label="관리자 시스템 (운영 및 관리 / Spring Boot)에 대한 직접 링크" title="관리자 시스템 (운영 및 관리 / Spring Boot)에 대한 직접 링크" translate="no">​</a></h4>
 <ul>
 <li class="">관리자 조회/정정 요청량</li>
 </ul>
 <hr>
 <h1>관제 기술 도입 및 역할</h1>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="시스템-metric지표-기반-관제-장애-감지">시스템 Metric(지표) 기반 관제 "장애 감지"<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#%EC%8B%9C%EC%8A%A4%ED%85%9C-metric%EC%A7%80%ED%91%9C-%EA%B8%B0%EB%B0%98-%EA%B4%80%EC%A0%9C-%EC%9E%A5%EC%95%A0-%EA%B0%90%EC%A7%80" class="hash-link" aria-label="시스템 Metric(지표) 기반 관제 &quot;장애 감지&quot;에 대한 직접 링크" title="시스템 Metric(지표) 기반 관제 &quot;장애 감지&quot;에 대한 직접 링크" translate="no">​</a></h2>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain" style="display:inline-block"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">(각 서비스 Application)</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">┌───────────────────────────────────────────────┐</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">│ Spring Boot / Spring Batch                    │</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">│  - Micrometer (custom + jvm + hikari + http)  │</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">│  - Actuator (/actuator/prometheus, /health)   │</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">└───────────────────────────────────────────────┘</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">          ↑   (Pull)</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">┌──────────────────────────┐</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">│ Prometheus               │  ← scrape: 각 서비스의 actuator/prometheus</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">└──────────────────────────┘</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">          ↑</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">┌──────────────────────────┐</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">│ Grafana                  │  ← Dashboard / Alert (Slack)</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">└──────────────────────────┘</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain" style="display:inline-block"></span><br></span></code></pre></div></div>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="spring-actuator--micrometer">Spring Actuator + Micrometer<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#spring-actuator--micrometer" class="hash-link" aria-label="Spring Actuator + Micrometer에 대한 직접 링크" title="Spring Actuator + Micrometer에 대한 직접 링크" translate="no">​</a></h3>
 <ul>
 <li class="">스프링 부트 애플리케이션의 지표(Metric)를 생성하고 표준화하는 도구(HTTP 엔드포인트로 노출)</li>
@@ -157,13 +317,14 @@ Scouter Client는 RCP 기반 클라이언트 프로그램으로 PC(윈도우 환
 <li class="">데이터 시각화 전문 플랫폼</li>
 <li class="">분산된 지표를 통합하여 한눈에 보이는 대시보드 및 멀티 채널 알람 구성</li>
 </ul>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain" style="display:inline-block"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">(각 서비스 Application)</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">┌───────────────────────────────────────────────┐</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">│ Spring Boot / Spring Batch                    │</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">│  - Micrometer (custom + jvm + hikari + http)  │</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">│  - Actuator (/actuator/prometheus, /health)   │</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">└───────────────────────────────────────────────┘</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">          ↑   (Pull)</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">┌──────────────────────────┐</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">│ Prometheus               │  ← scrape: 각 서비스의 actuator/prometheus</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">└──────────────────────────┘</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">          ↑</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">┌──────────────────────────┐</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">│ Grafana                  │  ← Dashboard / Alert (Slack)</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">└──────────────────────────┘</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain" style="display:inline-block"></span><br></span></code></pre></div></div>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="실시간-트랜잭션-추적apm-기반-관제-원인-분석">실시간 트랜잭션 추적(APM) 기반 관제 "원인 분석"<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#%EC%8B%A4%EC%8B%9C%EA%B0%84-%ED%8A%B8%EB%9E%9C%EC%9E%AD%EC%85%98-%EC%B6%94%EC%A0%81apm-%EA%B8%B0%EB%B0%98-%EA%B4%80%EC%A0%9C-%EC%9B%90%EC%9D%B8-%EB%B6%84%EC%84%9D" class="hash-link" aria-label="실시간 트랜잭션 추적(APM) 기반 관제 &quot;원인 분석&quot;에 대한 직접 링크" title="실시간 트랜잭션 추적(APM) 기반 관제 &quot;원인 분석&quot;에 대한 직접 링크" translate="no">​</a></h2>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain" style="display:inline-block"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">각 서비스 JVM Scouter agent → Scouter Server ← Scouter Paper or Client</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain" style="display:inline-block"></span><br></span></code></pre></div></div>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="scouter">Scouter<a href="https://goodsy.github.io/sykim-project/blog/2026/01/15/tech/monitoring-architecture#scouter" class="hash-link" aria-label="Scouter에 대한 직접 링크" title="Scouter에 대한 직접 링크" translate="no">​</a></h3>
 <ul>
 <li class="">국내 LG CNS 오픈소스로 JVM 및 Tomcat 트랜잭션(X-Log) 기반 실시간 프로파일링</li>
 <li class="">장애 시, "어디서 느린지" 빠르기 확인 가능</li>
-</ul>]]></content:encoded>
+</ul>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain">각 서비스 JVM Scouter agent → Scouter Server ← Scouter Paper or Client</span><br></span></code></pre></div></div>]]></content:encoded>
             <category>Tech</category>
             <category>monitoring</category>
         </item>
@@ -173,15 +334,15 @@ Scouter Client는 RCP 기반 클라이언트 프로그램으로 PC(윈도우 환
             <guid>https://goodsy.github.io/sykim-project/blog/2025/12/26/notes/kotlin-run-catching</guid>
             <pubDate>Fri, 26 Dec 2025 00:00:00 GMT</pubDate>
             <description><![CDATA[Kotlin의 runCatching으로 예외 처리를 함수형 스타일로 단순화하는 방법]]></description>
-            <content:encoded><![CDATA[<p><code>runCatching</code>은 Kotlin에서 <strong>try-catch를 함수형 스타일로 표현</strong>할 수 있게 해주는 표준 함수다.<br>
-<!-- -->예외가 발생할 수 있는 코드를 <code>Result&lt;T&gt;</code>로 감싸 <strong>성공과 실패를 명확하게 분리</strong>한다.</p>
+            <content:encoded><![CDATA[<p><code>runCatching</code>은 Kotlin에서 <strong>try-catch를 함수형 스타일로 표현</strong>할 수 있게 해주는 표준 함수입니다.
+예외가 발생할 수 있는 코드를 <code>Result&lt;T&gt;</code>로 감싸 <strong>성공과 실패를 명확하게 분리</strong>합니다.</p>
 <p>실무에서는 특히</p>
 <ul>
 <li class="">외부 API 연동</li>
 <li class="">Spring Batch 처리</li>
 <li class="">실패 허용이 필요한 로직</li>
 </ul>
-<p>에서 가독성과 안정성을 높이기 위해 자주 사용된다.</p>
+<p>에서 가독성과 안정성을 높이기 위해 자주 사용됩니다.</p>
 <hr>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="기본-개념">기본 개념<a href="https://goodsy.github.io/sykim-project/blog/2025/12/26/notes/kotlin-run-catching#%EA%B8%B0%EB%B3%B8-%EA%B0%9C%EB%85%90" class="hash-link" aria-label="기본 개념에 대한 직접 링크" title="기본 개념에 대한 직접 링크" translate="no">​</a></h2>
 <div class="language-kotlin codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-kotlin codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token keyword" style="color:rgb(189, 147, 249);font-style:italic">inline</span><span class="token plain"> </span><span class="token keyword" style="color:rgb(189, 147, 249);font-style:italic">fun</span><span class="token plain"> </span><span class="token operator">&lt;</span><span class="token plain">T</span><span class="token operator">&gt;</span><span class="token plain"> </span><span class="token function" style="color:rgb(80, 250, 123)">runCatching</span><span class="token punctuation" style="color:rgb(248, 248, 242)">(</span><span class="token plain">block</span><span class="token operator">:</span><span class="token plain"> </span><span class="token punctuation" style="color:rgb(248, 248, 242)">(</span><span class="token punctuation" style="color:rgb(248, 248, 242)">)</span><span class="token plain"> </span><span class="token operator">-&gt;</span><span class="token plain"> T</span><span class="token punctuation" style="color:rgb(248, 248, 242)">)</span><span class="token operator">:</span><span class="token plain"> Result</span><span class="token operator">&lt;</span><span class="token plain">T</span><span class="token operator">&gt;</span><br></span></code></pre></div></div>
@@ -199,7 +360,7 @@ Scouter Client는 RCP 기반 클라이언트 프로그램으로 PC(윈도우 환
 <ul>
 <li class=""><code>onSuccess</code> : 성공 시 실행</li>
 <li class=""><code>onFailure</code> : 예외 발생 시 실행</li>
-<li class="">반환값이 필요 없고 <strong>사이드 이펙트 처리</strong>에 적합</li>
+<li class="">반환값이 필요 없고 <strong>사이드 이펙트 처리</strong>에 적합합니다.</li>
 </ul>
 <hr>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="기본값-반환-getorelse-getornull">기본값 반환 (<code>getOrElse</code>, <code>getOrNull</code>)<a href="https://goodsy.github.io/sykim-project/blog/2025/12/26/notes/kotlin-run-catching#%EA%B8%B0%EB%B3%B8%EA%B0%92-%EB%B0%98%ED%99%98-getorelse-getornull" class="hash-link" aria-label="기본값-반환-getorelse-getornull에 대한 직접 링크" title="기본값-반환-getorelse-getornull에 대한 직접 링크" translate="no">​</a></h3>
@@ -251,15 +412,15 @@ Scouter Client는 RCP 기반 클라이언트 프로그램으로 PC(윈도우 환
 <li class="">단순 조건 분기를 대체하지 말 것</li>
 </ul>
 <hr>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="언제-사용하면-좋을까">언제 사용하면 좋을까?<a href="https://goodsy.github.io/sykim-project/blog/2025/12/26/notes/kotlin-run-catching#%EC%96%B8%EC%A0%9C-%EC%82%AC%EC%9A%A9%ED%95%98%EB%A9%B4-%EC%A2%8B%EC%9D%84%EA%B9%8C" class="hash-link" aria-label="언제 사용하면 좋을까?에 대한 직접 링크" title="언제 사용하면 좋을까?에 대한 직접 링크" translate="no">​</a></h2>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="언제-사용하면-좋을까요">언제 사용하면 좋을까요?<a href="https://goodsy.github.io/sykim-project/blog/2025/12/26/notes/kotlin-run-catching#%EC%96%B8%EC%A0%9C-%EC%82%AC%EC%9A%A9%ED%95%98%EB%A9%B4-%EC%A2%8B%EC%9D%84%EA%B9%8C%EC%9A%94" class="hash-link" aria-label="언제 사용하면 좋을까요?에 대한 직접 링크" title="언제 사용하면 좋을까요?에 대한 직접 링크" translate="no">​</a></h2>
 <ul>
 <li class="">외부 연동 (API, MQ, SFTP)</li>
 <li class="">Spring Batch Processor / Writer</li>
 <li class="">실패 허용 &amp; 보완 로직이 있는 경우</li>
 </ul>
-<p>피해야 할 경우:</p>
+<p>피해야 할 경우는</p>
 <ul>
-<li class="">핵심 도메인 로직</li>
+<li class="">핵심 도메인 로직과</li>
 <li class="">반드시 성공해야 하는 처리</li>
 </ul>
 <hr>
@@ -299,7 +460,7 @@ Scouter Client는 RCP 기반 클라이언트 프로그램으로 PC(윈도우 환
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="전체-구조-개요">전체 구조 개요<a href="https://goodsy.github.io/sykim-project/blog/2025/12/24/tech/jenkins-role#%EC%A0%84%EC%B2%B4-%EA%B5%AC%EC%A1%B0-%EA%B0%9C%EC%9A%94" class="hash-link" aria-label="전체 구조 개요에 대한 직접 링크" title="전체 구조 개요에 대한 직접 링크" translate="no">​</a></h2>
 <p>Jenkins를 도입하면서 가장 먼저 고민한 것은<br>
 <!-- -->“어떤 기술을 더 쓸 것인가”가 아니라<br>
-<!-- -->**“각 구성 요소가 무엇을 책임질 것인가”**였다.</p>
+<strong>"각 구성 요소가 무엇을 책임질 것인가"</strong> 였다.</p>
 <p>배치 플랫폼의 구조는 아래와 같이 가져갔다.</p>
 <div class="language-plaintext codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-plaintext codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain">[Jenkins]</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    ↓ (Trigger / Parameter)</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">[Batch Application]</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    ├─ Quartz / Scheduled (내부 스케줄)</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    └─ Spring Batch (실제 처리)</span><br></span></code></pre></div></div>
 <hr>
@@ -430,12 +591,12 @@ Quartz와 Scheduled는 “애플리케이션 내부에서 언제 처리할지”
             <pubDate>Thu, 18 Dec 2025 00:00:00 GMT</pubDate>
             <description><![CDATA[정산 시스템에서는 “금액 타입을 무엇으로 쓰느냐”가]]></description>
             <content:encoded><![CDATA[<p>정산 시스템에서는 “금액 타입을 무엇으로 쓰느냐”가<br>
-<!-- -->단순한 구현 문제가 아니라 <strong>정합성·재현성·장애 여부</strong>를 좌우한다.</p>
+<!-- -->단순한 구현 문제가 아니라 <strong>정합성·재현성·장애 여부</strong>를 좌우합니다.</p>
 <p>이 문서는 실무 정산 시스템 기준에서<br>
-<strong>금액 / 수수료 / 세금 타입을 어떻게 설계해야 하는지</strong>를 간단히 정리한 내용이다.</p>
+<strong>금액 / 수수료 / 세금 타입을 어떻게 설계해야 하는지</strong>를 간단히 정리한 내용입니다.</p>
 <hr>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="기본-원칙-요약">기본 원칙 요약<a href="https://goodsy.github.io/sykim-project/blog/2025/12/18/notes/settement_amount#%EA%B8%B0%EB%B3%B8-%EC%9B%90%EC%B9%99-%EC%9A%94%EC%95%BD" class="hash-link" aria-label="기본 원칙 요약에 대한 직접 링크" title="기본 원칙 요약에 대한 직접 링크" translate="no">​</a></h2>
-<p>정산 시스템의 금액 타입 설계는 아래 원칙을 따른다.</p>
+<p>정산 시스템의 금액 타입 설계는 아래 원칙을 따릅니다.</p>
 <ul>
 <li class="">❌ <code>double</code>, <code>float</code> 사용 금지</li>
 <li class="">✅ <strong>원 단위 금액은 정수(long)</strong></li>
@@ -443,14 +604,14 @@ Quartz와 Scheduled는 “애플리케이션 내부에서 언제 처리할지”
 <li class="">✅ <strong>반올림 정책은 반드시 명시</strong></li>
 </ul>
 <blockquote>
-<p>“정확한 계산”보다 더 중요한 건 <strong>항상 같은 결과가 나오는 계산</strong>이다.</p>
+<p>“정확한 계산”보다 더 중요한 건 <strong>항상 같은 결과가 나오는 계산</strong>입니다.</p>
 </blockquote>
 <hr>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="타입별-역할-분리-기준">타입별 역할 분리 기준<a href="https://goodsy.github.io/sykim-project/blog/2025/12/18/notes/settement_amount#%ED%83%80%EC%9E%85%EB%B3%84-%EC%97%AD%ED%95%A0-%EB%B6%84%EB%A6%AC-%EA%B8%B0%EC%A4%80" class="hash-link" aria-label="타입별 역할 분리 기준에 대한 직접 링크" title="타입별 역할 분리 기준에 대한 직접 링크" translate="no">​</a></h2>
 <table><thead><tr><th>구분</th><th>타입</th><th>설명</th></tr></thead><tbody><tr><td>승인금액, 취소금액(거래금액)</td><td><code>long</code></td><td>원 단위 정수</td></tr><tr><td>수수료율</td><td><code>BigDecimal</code></td><td>소수점 계산 필요</td></tr><tr><td>수수료 금액</td><td><code>BigDecimal</code></td><td>곱셈 결과</td></tr><tr><td>세금 금액</td><td><code>BigDecimal</code></td><td>반올림 정책 중요</td></tr><tr><td>최종 정산금액</td><td><code>BigDecimal</code></td><td>계산 결과값</td></tr></tbody></table>
-<p>👉 <strong>“입력은 정수, 계산은 BigDecimal”</strong> 구조가 가장 안정적이다.</p>
+<p>👉 <strong>“입력은 정수, 계산은 BigDecimal”</strong> 구조가 가장 안정적입니다.</p>
 <hr>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="왜-금액은-long-인가">왜 금액은 long 인가?<a href="https://goodsy.github.io/sykim-project/blog/2025/12/18/notes/settement_amount#%EC%99%9C-%EA%B8%88%EC%95%A1%EC%9D%80-long-%EC%9D%B8%EA%B0%80" class="hash-link" aria-label="왜 금액은 long 인가?에 대한 직접 링크" title="왜 금액은 long 인가?에 대한 직접 링크" translate="no">​</a></h2>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="왜-금액은-long-일까요">왜 금액은 long 일까요?<a href="https://goodsy.github.io/sykim-project/blog/2025/12/18/notes/settement_amount#%EC%99%9C-%EA%B8%88%EC%95%A1%EC%9D%80-long-%EC%9D%BC%EA%B9%8C%EC%9A%94" class="hash-link" aria-label="왜 금액은 long 일까요?에 대한 직접 링크" title="왜 금액은 long 일까요?에 대한 직접 링크" translate="no">​</a></h2>
 <div class="language-java codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-java codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token keyword" style="color:rgb(189, 147, 249);font-style:italic">long</span><span class="token plain"> approvedAmount </span><span class="token operator">=</span><span class="token plain"> </span><span class="token number">12_340L</span><span class="token punctuation" style="color:rgb(248, 248, 242)">;</span><br></span></code></pre></div></div>
 <ul>
 <li class="">DB, 외부 PG, VAN 연동 시 대부분 원 단위 정수</li>
@@ -458,7 +619,7 @@ Quartz와 Scheduled는 “애플리케이션 내부에서 언제 처리할지”
 <li class="">성능 부담 없음</li>
 <li class="">불필요한 BigDecimal 남용 방지</li>
 </ul>
-<p>✔ 정산 시스템에서 금액은 화폐 단위의 사실값(source of truth) 이다.</p>
+<p>✔ 정산 시스템에서 금액은 화폐 단위의 사실값(source of truth) 입니다.</p>
 <hr>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="bigdecimal이-필요한-영역">BigDecimal이 필요한 영역<a href="https://goodsy.github.io/sykim-project/blog/2025/12/18/notes/settement_amount#bigdecimal%EC%9D%B4-%ED%95%84%EC%9A%94%ED%95%9C-%EC%98%81%EC%97%AD" class="hash-link" aria-label="BigDecimal이 필요한 영역에 대한 직접 링크" title="BigDecimal이 필요한 영역에 대한 직접 링크" translate="no">​</a></h2>
 <p>① 수수료율</p>
@@ -505,7 +666,7 @@ Quartz와 Scheduled는 “애플리케이션 내부에서 언제 처리할지”
 <li class="">이 패턴이 실무에서 좋은 이유(핵심만)</li>
 </ol>
 <ul>
-<li class="">승인금액(long): “원장/PG가 준 사실값”이라서 변형 없이 단순·빠르게 들고 감</li>
+<li class="">승인금액(long): “원장이 준 사실값”이라서 변형 없이 단순·빠르게 들고 감</li>
 <li class="">정책(BigDecimal): 수수료율/세율/반올림은 정책 변경이 잦고 소수점이 필요</li>
 <li class="">결과(BigDecimal): 계산된 값은 “정책이 반영된 파생값”이라 정확·재현 가능해야 함
 → 나중에 동일 입력/정책으로 재정산(re-run) 해도 같은 결과가 나옴</li>
@@ -521,32 +682,32 @@ Quartz와 Scheduled는 “애플리케이션 내부에서 언제 처리할지”
             <pubDate>Wed, 17 Dec 2025 00:00:00 GMT</pubDate>
             <description><![CDATA[Quartz 단독 배치 운영의 한계와 Jenkins 도입을 결정한 이유]]></description>
             <content:encoded><![CDATA[<p><em>Quartz 단독 배치 운영의 한계와 Jenkins 도입을 결정한 이유</em></p>
-<p>배치 시스템을 설계할 때 가장 먼저 떠오르는 선택지는 보통 <strong>Quartz</strong>다.<br>
-<!-- -->애플리케이션 내부에서 스케줄을 관리할 수 있고 코드 기반으로 제어하기도 쉽다.</p>
-<p>현재 레거시 배치 시스템은 Quartz 단독 구조, 신규 배치는 <code>@Scheduled(cron=...)</code>으로 배치를 운영했다.<br>
-<!-- -->문제는 <strong>배치가 “돌아가는 것”과 “운영되는 것”은 다르다</strong>는 점이었다.</p>
+<p>배치 시스템을 설계할 때 가장 먼저 떠오르는 선택지는 보통 <strong>Quartz</strong>입니다.<br>
+<!-- -->애플리케이션 내부에서 스케줄을 관리할 수 있고 코드 기반으로 제어하기도 쉽습니다.</p>
+<p>현재 레거시 배치 시스템은 Quartz 단독 구조, 신규 배치는 <code>@Scheduled(cron=...)</code>으로 배치를 운영했습니다.<br>
+<!-- -->문제는 <strong>배치가 “돌아가는 것”과 “운영되는 것”은 다르다</strong>는 점이였습니다.</p>
 <p>이 글은 Jenkins의 기능을 소개하기 위한 글이 아니며<br>
 <!-- -->정산·배치 시스템을 운영하면서 <strong>왜 Jenkins가 필요해졌는지</strong>,<br>
-<!-- -->그리고 <strong>어떤 문제를 해결하기 위해 도입하려고 하는지</strong>에 대한 이야기다.</p>
+<!-- -->그리고 <strong>어떤 문제를 해결하기 위해 도입하려고 하는지</strong>에 대한 이야기입니다.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quartz-단독-구조에서-시작했다">Quartz 단독 구조에서 시작했다<a href="https://goodsy.github.io/sykim-project/blog/2025/12/17/tech/jenkins-intruduce#quartz-%EB%8B%A8%EB%8F%85-%EA%B5%AC%EC%A1%B0%EC%97%90%EC%84%9C-%EC%8B%9C%EC%9E%91%ED%96%88%EB%8B%A4" class="hash-link" aria-label="Quartz 단독 구조에서 시작했다에 대한 직접 링크" title="Quartz 단독 구조에서 시작했다에 대한 직접 링크" translate="no">​</a></h2>
-<p>초기 배치 구조는 단순했다.</p>
+<p>초기 배치 구조는 단순했습니다.</p>
 <ul>
 <li class="">애플리케이션 내부에 Quartz Scheduler 또는 <code>@Scheduled</code></li>
 <li class="">정해진 시간에 배치 실행</li>
 <li class="">실패 시 로그 확인 후 재실행</li>
 </ul>
-<p>기능적으로는 충분했다.<br>
-<!-- -->문제는 <strong>운영 상황</strong>에서 나타난다.</p>
+<p>기능적으로는 충분했습니다.<br>
+<!-- -->문제는 <strong>운영 상황</strong>에서 나타납니다.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="문제가-된-건-장애-상황">문제가 된 건 “장애 상황”<a href="https://goodsy.github.io/sykim-project/blog/2025/12/17/tech/jenkins-intruduce#%EB%AC%B8%EC%A0%9C%EA%B0%80-%EB%90%9C-%EA%B1%B4-%EC%9E%A5%EC%95%A0-%EC%83%81%ED%99%A9" class="hash-link" aria-label="문제가 된 건 “장애 상황”에 대한 직접 링크" title="문제가 된 건 “장애 상황”에 대한 직접 링크" translate="no">​</a></h3>
-<p>배치 실행 중 장애가 발생하면 항상 비슷한 질문이 나왔다.</p>
+<p>배치 실행 중 장애가 발생하면 항상 비슷한 질문이 나왔습니다.</p>
 <ul>
 <li class="">서버가 내려간 건가?</li>
 <li class="">애플리케이션이 기동에 실패한 건가?</li>
 <li class="">배치 로직 자체가 실패한 건가?</li>
 </ul>
-<p>Quartz 단독 구조에서는 이 세 가지가 <strong>운영 관점에서 명확히 구분되지 않았다.</strong></p>
+<p>Quartz 단독 구조에서는 이 세 가지가 <strong>운영 관점에서 명확히 구분되지 않았습니다.</strong></p>
 <blockquote>
-<p>결과적으로는 모두 <strong>"정산 배치가 안 돈다"</strong> 로 보이기 때문이다.</p>
+<p>결과적으로는 모두 <strong>"정산 배치가 안 돈다"</strong> 로 보이기 때문입니다.</p>
 </blockquote>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="quartz-또는-scheduled-단독-운영에서-느낀-한계">Quartz 또는 Scheduled 단독 운영에서 느낀 한계<a href="https://goodsy.github.io/sykim-project/blog/2025/12/17/tech/jenkins-intruduce#quartz-%EB%98%90%EB%8A%94-scheduled-%EB%8B%A8%EB%8F%85-%EC%9A%B4%EC%98%81%EC%97%90%EC%84%9C-%EB%8A%90%EB%82%80-%ED%95%9C%EA%B3%84" class="hash-link" aria-label="Quartz 또는 Scheduled 단독 운영에서 느낀 한계에 대한 직접 링크" title="Quartz 또는 Scheduled 단독 운영에서 느낀 한계에 대한 직접 링크" translate="no">​</a></h3>
 <ul>
@@ -555,29 +716,29 @@ Quartz와 Scheduled는 “애플리케이션 내부에서 언제 처리할지”
 <li class="">재처리 시 개발자 개입 빈번</li>
 <li class="">운영자가 직접 제어하기 어려움</li>
 </ul>
-<p>Quartz로만 시스템을 운영하기에는 <strong>정산·회계 배치 운영에는 부족한 부분이 있었다.</strong></p>
+<p>Quartz로만 시스템을 운영하기에는 <strong>정산·회계 배치 운영에는 부족한 부분이 있었습니다.</strong></p>
 <hr>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="배치-운영에서-중요한-것은-운영-안정성">배치 운영에서 중요한 것은 “운영 안정성”<a href="https://goodsy.github.io/sykim-project/blog/2025/12/17/tech/jenkins-intruduce#%EB%B0%B0%EC%B9%98-%EC%9A%B4%EC%98%81%EC%97%90%EC%84%9C-%EC%A4%91%EC%9A%94%ED%95%9C-%EA%B2%83%EC%9D%80-%EC%9A%B4%EC%98%81-%EC%95%88%EC%A0%95%EC%84%B1" class="hash-link" aria-label="배치 운영에서 중요한 것은 “운영 안정성”에 대한 직접 링크" title="배치 운영에서 중요한 것은 “운영 안정성”에 대한 직접 링크" translate="no">​</a></h2>
 <p>배치를 운영하면서 점점 중요해진 것은 “정확한 시간에 실행”도 중요하지만
-오히려 아래와 같은 요구가 더 컸다.</p>
+오히려 아래와 같은 요구가 더 컸습니다.</p>
 <ul>
 <li class="">장애가 나도 빠르게 재실행할 수 있는가</li>
 <li class="">서버 장애가 전체 배치 중단으로 이어지지 않는가</li>
 <li class="">운영자가 직접 배치를 제어할 수 있는가</li>
 <li class="">재처리 이력이 명확히 남는가</li>
 </ul>
-<p>이 시점에서 우리는 이렇게 정리했다.</p>
+<p>이 시점에서 이렇게 정리했습니다.</p>
 <blockquote>
 <p><strong>자동 스케줄링보다 운영 제어와 장애 대응이 더 중요하다</strong></p>
 </blockquote>
 <hr>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="jenkins를-검토하게-된-이유">Jenkins를 검토하게 된 이유<a href="https://goodsy.github.io/sykim-project/blog/2025/12/17/tech/jenkins-intruduce#jenkins%EB%A5%BC-%EA%B2%80%ED%86%A0%ED%95%98%EA%B2%8C-%EB%90%9C-%EC%9D%B4%EC%9C%A0" class="hash-link" aria-label="Jenkins를 검토하게 된 이유에 대한 직접 링크" title="Jenkins를 검토하게 된 이유에 대한 직접 링크" translate="no">​</a></h2>
-<p>Jenkins를 검토한 이유는 단순했다.</p>
+<p>Jenkins를 검토한 이유는 단순했습니다.</p>
 <blockquote>
 <p><strong>배치 실행의 주체를 애플리케이션 밖으로 분리하는 것이 목표</strong></p>
 </blockquote>
-<p>Jenkins는 배치를 “언제” 실행할지는 잘 모른다.<br>
-<!-- -->하지만 배치를 “어떻게 운영할지”에는 강점이 있다.</p>
+<p>Jenkins는 배치를 “언제” 실행할지는 잘 모릅니다.<br>
+<!-- -->하지만 배치를 “어떻게 운영할지”에는 강점이 있습니다.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="jenkins-도입-후-기대하는-점">Jenkins 도입 후 기대하는 점<a href="https://goodsy.github.io/sykim-project/blog/2025/12/17/tech/jenkins-intruduce#jenkins-%EB%8F%84%EC%9E%85-%ED%9B%84-%EA%B8%B0%EB%8C%80%ED%95%98%EB%8A%94-%EC%A0%90" class="hash-link" aria-label="Jenkins 도입 후 기대하는 점에 대한 직접 링크" title="Jenkins 도입 후 기대하는 점에 대한 직접 링크" translate="no">​</a></h3>
 <h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-배치-실행-구조가-바뀐다">1. 배치 실행 구조가 바뀐다.<a href="https://goodsy.github.io/sykim-project/blog/2025/12/17/tech/jenkins-intruduce#1-%EB%B0%B0%EC%B9%98-%EC%8B%A4%ED%96%89-%EA%B5%AC%EC%A1%B0%EA%B0%80-%EB%B0%94%EB%80%90%EB%8B%A4" class="hash-link" aria-label="1. 배치 실행 구조가 바뀐다.에 대한 직접 링크" title="1. 배치 실행 구조가 바뀐다.에 대한 직접 링크" translate="no">​</a></h4>
 <ul>
@@ -587,16 +748,16 @@ Quartz와 Scheduled는 “애플리케이션 내부에서 언제 처리할지”
 </ul>
 <p>즉,<br>
 <strong>서버 장애가 나도 Jenkins는 살아 있고,<br>
-<!-- -->다른 서버에서 재실행할 수 있는 구조</strong>가 된다.</p>
+<!-- -->다른 서버에서 재실행할 수 있는 구조</strong>가 됩니다.</p>
 <h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-장애-원인-분리가-명확해진다">2. 장애 원인 분리가 명확해진다.<a href="https://goodsy.github.io/sykim-project/blog/2025/12/17/tech/jenkins-intruduce#2-%EC%9E%A5%EC%95%A0-%EC%9B%90%EC%9D%B8-%EB%B6%84%EB%A6%AC%EA%B0%80-%EB%AA%85%ED%99%95%ED%95%B4%EC%A7%84%EB%8B%A4" class="hash-link" aria-label="2. 장애 원인 분리가 명확해진다.에 대한 직접 링크" title="2. 장애 원인 분리가 명확해진다.에 대한 직접 링크" translate="no">​</a></h4>
-<p>Jenkins 연계 구조에서는 장애가 명확히 나뉜다.</p>
+<p>Jenkins 연계 구조에서는 장애가 명확히 나뉩니다.</p>
 <ul>
 <li class="">애플리케이션 기동 실패 → 환경/인프라 문제</li>
 <li class="">배치 실행 실패 → 데이터/로직 문제</li>
 </ul>
-<p>운영 판단이 훨씬 빨라졌다.</p>
+<p>운영 판단이 훨씬 빨라졌습니다.</p>
 <h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-재처리와-수동-실행이-쉬워진다">3. 재처리와 수동 실행이 쉬워진다.<a href="https://goodsy.github.io/sykim-project/blog/2025/12/17/tech/jenkins-intruduce#3-%EC%9E%AC%EC%B2%98%EB%A6%AC%EC%99%80-%EC%88%98%EB%8F%99-%EC%8B%A4%ED%96%89%EC%9D%B4-%EC%89%AC%EC%9B%8C%EC%A7%84%EB%8B%A4" class="hash-link" aria-label="3. 재처리와 수동 실행이 쉬워진다.에 대한 직접 링크" title="3. 재처리와 수동 실행이 쉬워진다.에 대한 직접 링크" translate="no">​</a></h4>
-<p>정산 배치는 재처리 작업이 많으며 이를 얼마나 유연하게 구성하느냐가 중요하다.</p>
+<p>정산 배치는 재처리 작업이 많으며 이를 얼마나 유연하게 구성하느냐가 중요합니다.</p>
 <ul>
 <li class="">특정 일자</li>
 <li class="">특정 대상</li>
@@ -608,8 +769,8 @@ Quartz와 Scheduled는 “애플리케이션 내부에서 언제 처리할지”
 <li class="">파라미터</li>
 <li class="">실행 결과</li>
 </ul>
-<p>가 모두 남는다.</p>
-<p>운영자가 <strong>UI 기준으로 안전하게 재실행</strong>할 수 있게 된다.</p>
+<p>가 모두 남습니다.</p>
+<p>운영자가 <strong>UI 기준으로 안전하게 재실행</strong>할 수 있게 됩니다.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="jenkins-도입으로-얻은-이점">Jenkins 도입으로 얻은 이점<a href="https://goodsy.github.io/sykim-project/blog/2025/12/17/tech/jenkins-intruduce#jenkins-%EB%8F%84%EC%9E%85%EC%9C%BC%EB%A1%9C-%EC%96%BB%EC%9D%80-%EC%9D%B4%EC%A0%90" class="hash-link" aria-label="Jenkins 도입으로 얻은 이점에 대한 직접 링크" title="Jenkins 도입으로 얻은 이점에 대한 직접 링크" translate="no">​</a></h3>
 <ul>
 <li class="">서버 장애 대응 구조 개선</li>
@@ -619,21 +780,21 @@ Quartz와 Scheduled는 “애플리케이션 내부에서 언제 처리할지”
 </ul>
 <hr>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="하지만-jenkins는-만능이-아니다">하지만, Jenkins는 만능이 아니다<a href="https://goodsy.github.io/sykim-project/blog/2025/12/17/tech/jenkins-intruduce#%ED%95%98%EC%A7%80%EB%A7%8C-jenkins%EB%8A%94-%EB%A7%8C%EB%8A%A5%EC%9D%B4-%EC%95%84%EB%8B%88%EB%8B%A4" class="hash-link" aria-label="하지만, Jenkins는 만능이 아니다에 대한 직접 링크" title="하지만, Jenkins는 만능이 아니다에 대한 직접 링크" translate="no">​</a></h2>
-<p>중요한 점은, Jenkins를 <strong>배치 로직 실행자</strong>로 사용하지 않았다는 것이다.</p>
-<p>그러기 위해서는 Jenkins와 Quartz, Application 역할 경계를 명확히 해야 했다.</p>
+<p>중요한 점은, Jenkins를 <strong>배치 로직 실행자</strong>로 사용하지 않았다는 것입니다.</p>
+<p>그러기 위해서는 Jenkins와 Quartz, Application 역할 경계를 명확히 해야 했습니다.</p>
 <ul>
 <li class="">Jenkins: 실행 트리거, 운영 제어</li>
 <li class="">Quartz: 내부 정책성 스케줄</li>
 <li class="">Spring Batch: 상태 관리와 데이터 처리</li>
 </ul>
-<p>이 경계를 지키지 않으면  Jenkins는 새로운 기술 부채가 된다.</p>
+<p>이 경계를 지키지 않으면  Jenkins는 새로운 기술 부채가 됩니다.</p>
 <hr>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="결론">결론<a href="https://goodsy.github.io/sykim-project/blog/2025/12/17/tech/jenkins-intruduce#%EA%B2%B0%EB%A1%A0" class="hash-link" aria-label="결론에 대한 직접 링크" title="결론에 대한 직접 링크" translate="no">​</a></h2>
-<p>Quartz는 <strong>배치를 언제 실행할지</strong>에 강하다.
-Jenkins는 <strong>배치를 어떻게 운영할지</strong>에 강하다.
+<p>Quartz는 <strong>배치를 언제 실행할지</strong>에 강합니다.
+Jenkins는 <strong>배치를 어떻게 운영할지</strong>에 강합니다.
 정산·회계처럼 실패 시 재처리가 필요하고 운영 안정성이 중요한 배치에서는,</p>
 <blockquote>
-<p>Quartz 단독보다 <strong>Jenkins 연계 구조가 운영하기에 적합</strong>하지 않을까 생각한다.</p>
+<p>Quartz 단독보다 <strong>Jenkins 연계 구조가 운영하기에 적합</strong>하지 않을까 생각합니다.</p>
 <p>Jenkins는 장애가 났을 때 쓰는 도구가 아니라,<br>
 <!-- -->장애가 나도 배치 운영이 흔들리지 않게 만드는 도구다.</p>
 </blockquote>]]></content:encoded>
@@ -655,13 +816,13 @@ Jenkins는 <strong>배치를 어떻게 운영할지</strong>에 강하다.
             <pubDate>Fri, 12 Dec 2025 00:00:00 GMT</pubDate>
             <description><![CDATA[이 블로그는 단순한 기술 정리 공간이 아니라,]]></description>
             <content:encoded><![CDATA[<p>이 블로그는 단순한 기술 정리 공간이 아니라,<br>
-<strong>실무에서의 고민과 선택, 그리고 그 결과를 기록하는 공간</strong>으로 운영할 예정이다.</p>
+<strong>실무에서의 고민과 선택, 그리고 그 결과를 기록하는 공간</strong>으로 운영할 예정입니다.</p>
 <p>백엔드 개발자로 일하며 느낀 점은,<br>
-<!-- -->기술 자체보다도  <strong>"어떤 상황에서 왜 이 선택을 했는지"</strong> 가 훨씬 중요하다는 것이다.</p>
+<!-- -->기술 자체보다도  <strong>"어떤 상황에서 왜 이 선택을 했는지"</strong> 가 훨씬 중요하다는 것입니다.</p>
 <hr>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-정산결제pg-시스템-실무-기록">1. 정산·결제(PG) 시스템 실무 기록<a href="https://goodsy.github.io/sykim-project/blog/2025/12/12/start-tech-blog#1-%EC%A0%95%EC%82%B0%EA%B2%B0%EC%A0%9Cpg-%EC%8B%9C%EC%8A%A4%ED%85%9C-%EC%8B%A4%EB%AC%B4-%EA%B8%B0%EB%A1%9D" class="hash-link" aria-label="1. 정산·결제(PG) 시스템 실무 기록에 대한 직접 링크" title="1. 정산·결제(PG) 시스템 실무 기록에 대한 직접 링크" translate="no">​</a></h2>
 <p>가장 오래 다뤄온 영역인 <strong>결제(PG) 정산 시스템</strong>을 중심으로,<br>
-<!-- -->다음과 같은 내용을 정리할 계획이다.</p>
+<!-- -->다음과 같은 내용을 정리할 계획입니다.</p>
 <ul>
 <li class="">정산 기준정보 설계 (수수료율, 계산 방식, 세금계산서 기준)</li>
 <li class="">정산 배치 시스템 설계와 고도화 과정</li>
@@ -669,10 +830,10 @@ Jenkins는 <strong>배치를 어떻게 운영할지</strong>에 강하다.
 <li class="">PG/외부 시스템 연동 시 고려해야 할 포인트</li>
 </ul>
 <p>실제 운영 환경에서 겪었던 문제와<br>
-<!-- -->그 문제를 해결하기 위해 어떤 구조와 방식을 선택했는지를 기록한다.</p>
+<!-- -->그 문제를 해결하기 위해 어떤 구조와 방식을 선택했는지를 기록하려 합니다.</p>
 <hr>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-spring-batch-기반-대량-처리와-성능-개선">2. Spring Batch 기반 대량 처리와 성능 개선<a href="https://goodsy.github.io/sykim-project/blog/2025/12/12/start-tech-blog#2-spring-batch-%EA%B8%B0%EB%B0%98-%EB%8C%80%EB%9F%89-%EC%B2%98%EB%A6%AC%EC%99%80-%EC%84%B1%EB%8A%A5-%EA%B0%9C%EC%84%A0" class="hash-link" aria-label="2. Spring Batch 기반 대량 처리와 성능 개선에 대한 직접 링크" title="2. Spring Batch 기반 대량 처리와 성능 개선에 대한 직접 링크" translate="no">​</a></h2>
-<p>대량 데이터 처리와 배치는 정산 시스템에서 빠질 수 없는 영역이다.</p>
+<p>대량 데이터 처리와 배치는 정산 시스템에서 빠질 수 없는 영역입니다.</p>
 <ul>
 <li class="">Chunk vs Tasklet 선택 기준</li>
 <li class="">Skip / Retry 정책 설계 경험</li>
@@ -680,19 +841,19 @@ Jenkins는 <strong>배치를 어떻게 운영할지</strong>에 강하다.
 <li class="">배치 장애 발생 시 재처리 전략</li>
 </ul>
 <p>단순 기능 설명이 아닌,<br>
-<strong>운영 안정성과 성능을 함께 고려한 설계 관점</strong>을 중심으로 정리할 예정이다.</p>
+<strong>운영 안정성과 성능을 함께 고려한 설계 관점</strong>을 중심으로 정리할 예정이예요.</p>
 <hr>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-트랜잭션-동시성-데이터-정합성">3. 트랜잭션, 동시성, 데이터 정합성<a href="https://goodsy.github.io/sykim-project/blog/2025/12/12/start-tech-blog#3-%ED%8A%B8%EB%9E%9C%EC%9E%AD%EC%85%98-%EB%8F%99%EC%8B%9C%EC%84%B1-%EB%8D%B0%EC%9D%B4%ED%84%B0-%EC%A0%95%ED%95%A9%EC%84%B1" class="hash-link" aria-label="3. 트랜잭션, 동시성, 데이터 정합성에 대한 직접 링크" title="3. 트랜잭션, 동시성, 데이터 정합성에 대한 직접 링크" translate="no">​</a></h2>
-<p>실무에서 가장 많은 고민이 필요한 주제 중 하나다.</p>
+<p>실무에서 가장 많은 고민이 필요한 주제 중 하나입니다.</p>
 <ul>
 <li class="">트랜잭션 Isolation Level 선택 기준</li>
 <li class="">Deadlock 발생 원인과 대응 경험</li>
 <li class="">동시성 충돌을 막기 위한 설계 방식</li>
 </ul>
-<p>이론보다는 <strong>실제 문제 상황과 선택의 결과</strong>를 중심으로 다룬다.</p>
+<p>이론보다는 <strong>실제 문제 상황과 선택의 결과</strong>를 중심으로 다루려고 합니다.</p>
 <hr>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-운영-장애-대응-그리고-자동화">4. 운영, 장애 대응, 그리고 자동화<a href="https://goodsy.github.io/sykim-project/blog/2025/12/12/start-tech-blog#4-%EC%9A%B4%EC%98%81-%EC%9E%A5%EC%95%A0-%EB%8C%80%EC%9D%91-%EA%B7%B8%EB%A6%AC%EA%B3%A0-%EC%9E%90%EB%8F%99%ED%99%94" class="hash-link" aria-label="4. 운영, 장애 대응, 그리고 자동화에 대한 직접 링크" title="4. 운영, 장애 대응, 그리고 자동화에 대한 직접 링크" translate="no">​</a></h2>
-<p>서비스는 개발보다 운영에서 더 많은 배움을 준다.</p>
+<p>서비스는 개발보다 운영에서 더 많은 배움을 줍니다.</p>
 <ul>
 <li class="">장애 알림 설계</li>
 <li class="">로그와 이력 기반 원인 분석</li>
@@ -700,13 +861,13 @@ Jenkins는 <strong>배치를 어떻게 운영할지</strong>에 강하다.
 <li class="">운영 효율을 높이기 위한 자동화</li>
 </ul>
 <p>“장애를 줄이는 코드”보다<br>
-<!-- -->**"장애를 빨리 파악하고 복구할 수 있는 구조"**에 대한 고민을 담을 예정이다.</p>
+<!-- -->**"장애를 빨리 파악하고 복구할 수 있는 구조"**에 대한 고민을 담아보려 합니다.</p>
 <hr>
 <p>이 블로그의 글들은 완벽한 정답을 제시하기보다는,<br>
-<strong>실무에서 고민하고 선택했던 과정을 솔직하게 기록</strong>하는 데 목적이 있다.</p>
+<strong>실무에서 고민하고 선택했던 과정을 솔직하게 기록</strong>하는 데 목적이 있습니다.</p>
 <p>앞으로 이 공간에 쌓일 기록들이<br>
 <!-- -->스스로를 돌아보는 자료이자,<br>
-<!-- -->필요한 누군가에게는 작은 참고가 되었으면 한다.</p>]]></content:encoded>
+<!-- -->필요한 누군가에게는 작은 참고가 되었으면 합니다.</p>]]></content:encoded>
             <category>기술블로그</category>
             <category>백엔드</category>
         </item>
@@ -717,7 +878,7 @@ Jenkins는 <strong>배치를 어떻게 운영할지</strong>에 강하다.
             <pubDate>Fri, 12 Dec 2025 00:00:00 GMT</pubDate>
             <description><![CDATA[Batch 정산 시스템 개선 사항]]></description>
             <content:encoded><![CDATA[<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="batch-정산-시스템-개선-사항">Batch 정산 시스템 개선 사항<a href="https://goodsy.github.io/sykim-project/blog/2025/12/12/tech/batch-modernization#batch-%EC%A0%95%EC%82%B0-%EC%8B%9C%EC%8A%A4%ED%85%9C-%EA%B0%9C%EC%84%A0-%EC%82%AC%ED%95%AD" class="hash-link" aria-label="Batch 정산 시스템 개선 사항에 대한 직접 링크" title="Batch 정산 시스템 개선 사항에 대한 직접 링크" translate="no">​</a></h2>
-<p><strong>1. select - insert 구조 기반으로 기준정보와 거래원장 join으로 정산 기준정보 조회와 계산하는 로직으로 구현 됨</strong></p>
+<p><strong>1. select - insert 구조 기반으로 기준정보와 거래원장 join으로 정산 기준정보 조회와 계산하는 로직으로 구현</strong></p>
 <ul>
 <li class="">Job 또는 Step 실행 시, 기준정보 캐싱 조회 -&gt; 추후 Redis 연동</li>
 <li class="">캐싱된 기준정보와 정산 대 거래 원장의 정산 정보 생성</li>
