@@ -1,0 +1,1 @@
+"use strict";(globalThis.webpackChunksykim_project=globalThis.webpackChunksykim_project||[]).push([[4761],{4464:e=>{e.exports=JSON.parse('{"metadata":{"permalink":"/sykim-project/blog/page/2","page":2,"postsPerPage":10,"totalPages":2,"totalCount":11,"previousPage":"/sykim-project/blog","blogDescription":"Recent posts","blogTitle":"Blog"}}')}}]);
